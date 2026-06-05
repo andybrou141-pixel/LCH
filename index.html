@@ -3913,6 +3913,187 @@
   /* ── Scrollbar ── */
   #admin-app .admin-content::-webkit-scrollbar-thumb { background: #BFDBFE; }
   #admin-app .asb::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+
+  /* ══════════════════════════════════════════
+     SIDEBAR DRAWER — ADMIN & FORMATEUR
+  ══════════════════════════════════════════ */
+  .drawer-overlay {
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,0.52); z-index:400;
+    backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px);
+    cursor:pointer;
+  }
+  .drawer-overlay.active { display:block; }
+
+  .sidebar-drawer {
+    position:fixed; top:0; left:0; bottom:0;
+    width:280px; max-width:85vw;
+    background:#fff; z-index:401;
+    transform:translateX(-105%);
+    transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    display:flex; flex-direction:column;
+    box-shadow:6px 0 48px rgba(0,0,0,0.18);
+    overflow:hidden;
+  }
+  .sidebar-drawer.open { transform:translateX(0); }
+
+  .drawer-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:1rem 1rem 0.85rem;
+    border-bottom:1px solid #f0f0f0;
+    background:#fff; flex-shrink:0;
+  }
+  .drawer-brand { display:flex; align-items:center; gap:0.65rem; }
+  .drawer-logo {
+    width:38px; height:38px; border-radius:10px;
+    background:linear-gradient(135deg,#16a34a,#22c55e);
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-size:1.1rem; font-weight:900;
+    font-family:'Playfair Display',serif; flex-shrink:0;
+  }
+  .drawer-brand-text {
+    font-size:0.83rem; font-weight:700; color:#1a1a2e;
+    font-family:'DM Sans',sans-serif; line-height:1.2;
+  }
+  .drawer-brand-sub {
+    font-size:0.62rem; color:#aaa; letter-spacing:0.07em;
+    text-transform:uppercase; font-weight:600; margin-top:1px;
+  }
+  .drawer-close {
+    width:32px; height:32px; border-radius:8px;
+    border:none; background:#f5f5f5; color:#666;
+    cursor:pointer; display:flex; align-items:center;
+    justify-content:center; transition:background 0.15s; flex-shrink:0;
+  }
+  .drawer-close:hover { background:#ffe8e8; color:#c0392b; }
+
+  .drawer-profile {
+    display:flex; align-items:center; gap:0.75rem;
+    padding:0.85rem 1rem; border-bottom:1px solid #f5f5f5;
+    background:#fafafa; flex-shrink:0;
+  }
+  .drawer-profile-avatar {
+    width:42px; height:42px; border-radius:50%;
+    background:linear-gradient(135deg,#2d6a4f,#22c55e);
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-size:0.92rem; font-weight:800; flex-shrink:0;
+    border:2px solid rgba(45,106,79,0.25);
+  }
+  .drawer-profile-info { min-width:0; }
+  .drawer-profile-name {
+    font-size:0.84rem; font-weight:700; color:#1a1a2e;
+    font-family:'DM Sans',sans-serif;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .drawer-profile-role { font-size:0.68rem; color:#aaa; margin-top:1px; }
+
+  .drawer-nav {
+    flex:1; padding:0.4rem 0 0.5rem;
+    overflow-y:auto; overflow-x:hidden;
+  }
+  .drawer-nav::-webkit-scrollbar { width:0; }
+  .drawer-nav-label {
+    font-size:0.6rem; text-transform:uppercase; letter-spacing:0.1em;
+    color:#c0c0c0; font-weight:700;
+    padding:0.85rem 1rem 0.3rem;
+    font-family:'DM Sans',sans-serif;
+  }
+  .drawer-nav-item {
+    display:flex; align-items:center; gap:0.75rem;
+    padding:0.68rem 0.85rem; cursor:pointer;
+    border-radius:10px; margin:0.08rem 0.5rem;
+    color:#444; font-size:0.84rem; font-weight:500;
+    font-family:'DM Sans',sans-serif;
+    transition:background 0.15s, color 0.15s;
+    user-select:none;
+  }
+  .drawer-nav-item:hover { background:#edf7f1; color:#2d6a4f; }
+  .drawer-nav-item.active {
+    background:#2d6a4f; color:#fff; font-weight:700;
+    box-shadow:0 2px 10px rgba(45,106,79,0.22);
+  }
+  .drawer-nav-icon {
+    width:20px; height:20px; display:flex; align-items:center;
+    justify-content:center; flex-shrink:0; opacity:0.55;
+  }
+  .drawer-nav-item:hover .drawer-nav-icon { opacity:0.8; }
+  .drawer-nav-item.active .drawer-nav-icon { opacity:1; }
+
+  /* Accordion */
+  .drawer-accordion { margin:0.08rem 0.5rem; }
+  .drawer-accordion-toggle {
+    display:flex; align-items:center; gap:0.75rem;
+    padding:0.68rem 0.85rem; cursor:pointer;
+    border-radius:10px; color:#444;
+    font-size:0.84rem; font-weight:500;
+    font-family:'DM Sans',sans-serif;
+    transition:background 0.15s, color 0.15s;
+    user-select:none; width:100%; border:none;
+    background:transparent; text-align:left;
+  }
+  .drawer-accordion-toggle:hover { background:#edf7f1; color:#2d6a4f; }
+  .drawer-accordion-toggle .drawer-nav-icon { opacity:0.55; }
+  .drawer-accordion.has-active .drawer-accordion-toggle { color:#2d6a4f; }
+  .drawer-accordion-arrow {
+    margin-left:auto; transition:transform 0.25s; flex-shrink:0; color:#bbb;
+  }
+  .drawer-accordion.open .drawer-accordion-arrow { transform:rotate(180deg); }
+  .drawer-accordion-body {
+    max-height:0; overflow:hidden;
+    transition:max-height 0.28s cubic-bezier(0.4,0,0.2,1);
+    padding-left:0.75rem;
+  }
+  .drawer-accordion.open .drawer-accordion-body { max-height:300px; }
+  .drawer-accordion-item {
+    display:flex; align-items:center; gap:0.55rem;
+    padding:0.58rem 0.75rem 0.58rem 1rem;
+    cursor:pointer; border-radius:8px;
+    color:#555; font-size:0.8rem; font-weight:500;
+    font-family:'DM Sans',sans-serif;
+    transition:background 0.15s, color 0.15s;
+    user-select:none; position:relative;
+  }
+  .drawer-accordion-item:hover { background:#edf7f1; color:#2d6a4f; }
+  .drawer-accordion-item.active {
+    background:rgba(45,106,79,0.1); color:#2d6a4f; font-weight:700;
+  }
+  .drawer-accordion-item::before {
+    content:''; width:6px; height:6px; border-radius:50%;
+    background:currentColor; flex-shrink:0; opacity:0.4;
+  }
+  .drawer-accordion-item.active::before { opacity:1; }
+
+  /* Logout footer */
+  .drawer-logout {
+    padding:0.65rem 0.85rem 0.85rem; border-top:1px solid #f0f0f0; flex-shrink:0;
+  }
+  .drawer-logout-btn {
+    display:flex; align-items:center; gap:0.75rem;
+    padding:0.7rem 0.85rem; width:100%;
+    border:1px solid rgba(239,68,68,0.25); border-radius:10px;
+    background:rgba(239,68,68,0.05); color:#dc2626;
+    font-size:0.82rem; font-weight:700; cursor:pointer;
+    font-family:'DM Sans',sans-serif; transition:all 0.15s; text-align:left;
+  }
+  .drawer-logout-btn:hover { background:rgba(239,68,68,0.12); border-color:rgba(239,68,68,0.4); }
+
+  /* Hamburger button (visible only on mobile) */
+  .drawer-hamburger {
+    display:none; width:38px; height:38px; border-radius:10px;
+    border:none; background:#f0f0f0; color:#444;
+    cursor:pointer; align-items:center; justify-content:center;
+    flex-shrink:0; transition:background 0.15s;
+  }
+  .drawer-hamburger:hover { background:#edf7f1; color:#2d6a4f; }
+
+  @media(max-width:700px) {
+    #admin-drawer-hamburger { display:flex !important; }
+    .admin-mobile-nav { display:none !important; }
+  }
+  @media(max-width:900px) {
+    #trainer-drawer-hamburger { display:flex !important; }
+    .trainer-mobile-nav { display:none !important; }
+  }
 </style>
 </head>
 <body>
@@ -5335,11 +5516,77 @@
   <!-- Topbar -->
   <div class="admin-topbar">
     <div class="admin-topbar-left">
+      <button id="admin-drawer-hamburger" class="drawer-hamburger" onclick="openAdminDrawer()" aria-label="Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
       <div class="admin-topbar-logo">H</div>
       <div class="admin-topbar-title"><span>Les Cours Hermès</span> · Admin</div>
     </div>
     <div class="admin-topbar-right"></div>
   </div>
+
+  <!-- Drawer overlay + Sidebar drawer (mobile) -->
+  <div class="drawer-overlay" id="admin-drawer-overlay" onclick="closeAdminDrawer()"></div>
+  <aside class="sidebar-drawer" id="admin-drawer">
+    <div class="drawer-header">
+      <div class="drawer-brand">
+        <div class="drawer-logo" style="background:linear-gradient(135deg,#1a5c40,#22c55e);">H</div>
+        <div>
+          <div class="drawer-brand-text">Les Cours Hermès</div>
+          <div class="drawer-brand-sub">Administration</div>
+        </div>
+      </div>
+      <button class="drawer-close" onclick="closeAdminDrawer()" aria-label="Fermer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <nav class="drawer-nav">
+      <div class="drawer-nav-label">Navigation</div>
+      <div class="drawer-nav-item active" data-admin-view="dashboard" onclick="switchAdminView('dashboard')">
+        <span class="drawer-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+        Tableau de bord
+      </div>
+      <div class="drawer-accordion open" id="admin-accord-formations">
+        <button class="drawer-accordion-toggle" onclick="toggleDrawerAccordion('admin-accord-formations')">
+          <span class="drawer-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+          Formations
+          <span class="drawer-accordion-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </button>
+        <div class="drawer-accordion-body">
+          <div class="drawer-accordion-item" data-admin-view="courses" onclick="switchAdminView('courses')">Liste des cours</div>
+          <div class="drawer-accordion-item" data-admin-view="promotions" onclick="switchAdminView('promotions')">Promotions</div>
+          <div class="drawer-accordion-item" data-admin-view="trainers" onclick="switchAdminView('trainers')">Formateurs</div>
+        </div>
+      </div>
+      <div class="drawer-nav-item" data-admin-view="exercises" onclick="switchAdminView('exercises')">
+        <span class="drawer-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+        Exercices
+      </div>
+      <div class="drawer-nav-item" data-admin-view="results" onclick="switchAdminView('results')">
+        <span class="drawer-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+        Résultats
+      </div>
+      <div class="drawer-nav-label">Administration</div>
+      <div class="drawer-nav-item" data-admin-view="recouvrement" onclick="switchAdminView('recouvrement')">
+        <span class="drawer-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
+        Recouvrement
+      </div>
+      <div class="drawer-nav-item" data-admin-view="pointage" onclick="switchAdminView('pointage')">
+        <span class="drawer-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg></span>
+        Pointage
+      </div>
+      <div class="drawer-nav-item" data-admin-view="live-sessions" onclick="switchAdminView('live-sessions')">
+        <span class="drawer-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></span>
+        Cours en direct
+      </div>
+    </nav>
+    <div class="drawer-logout">
+      <button class="drawer-logout-btn" onclick="adminLogout()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Déconnexion
+      </button>
+    </div>
+  </aside>
 
   <!-- Nav mobile -->
   <div class="admin-mobile-nav" id="admin-mobile-nav">
@@ -6205,6 +6452,10 @@
 <div id="trainer-app">
   <!-- Topbar -->
   <div class="trainer-topbar" style="padding:0 1.5rem;display:flex;align-items:center;gap:1rem;">
+    <!-- Hamburger mobile -->
+    <button id="trainer-drawer-hamburger" class="drawer-hamburger" onclick="openTrainerDrawer()" aria-label="Menu">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
     <!-- Logo + Brand -->
     <div class="trainer-topbar-left" style="flex-shrink:0;">
       <div style="position:relative;flex-shrink:0;">
@@ -6244,6 +6495,72 @@
     <!-- Éléments cachés gardés pour compatibilité JS -->
     <span id="trainer-topbar-name" style="display:none;"></span>
   </div>
+
+  <!-- Drawer overlay + Sidebar drawer (mobile) -->
+  <div class="drawer-overlay" id="trainer-drawer-overlay" onclick="closeTrainerDrawer()"></div>
+  <aside class="sidebar-drawer" id="trainer-drawer">
+    <div class="drawer-header">
+      <div class="drawer-brand">
+        <div class="drawer-logo" style="background:linear-gradient(135deg,#2d6a4f,#22c55e);">H</div>
+        <div>
+          <div class="drawer-brand-text">Les Cours Hermès</div>
+          <div class="drawer-brand-sub">Espace Formateur</div>
+        </div>
+      </div>
+      <button class="drawer-close" onclick="closeTrainerDrawer()" aria-label="Fermer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="drawer-profile">
+      <div class="drawer-profile-avatar" id="trainer-drawer-avatar">F</div>
+      <div class="drawer-profile-info">
+        <div class="drawer-profile-name" id="trainer-drawer-name">Formateur</div>
+        <div class="drawer-profile-role">Espace Pédagogique</div>
+      </div>
+    </div>
+    <nav class="drawer-nav">
+      <div class="drawer-nav-label">Navigation</div>
+      <div class="drawer-nav-item active" data-trainer-view="dashboard" onclick="switchTrainerView('dashboard')">
+        <span class="drawer-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+        Tableau de bord
+      </div>
+      <div class="drawer-accordion open" id="trainer-accord-formations">
+        <button class="drawer-accordion-toggle" onclick="toggleDrawerAccordion('trainer-accord-formations')">
+          <span class="drawer-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+          Formations
+          <span class="drawer-accordion-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </button>
+        <div class="drawer-accordion-body">
+          <div class="drawer-accordion-item" data-trainer-view="courses" onclick="switchTrainerView('courses')">Mes cours</div>
+          <div class="drawer-accordion-item" data-trainer-view="exercises" onclick="switchTrainerView('exercises')">Mes exercices</div>
+          <div class="drawer-accordion-item" data-trainer-view="assessments" onclick="switchTrainerView('assessments')">Évaluations</div>
+        </div>
+      </div>
+      <div class="drawer-nav-item" data-trainer-view="results" onclick="switchTrainerView('results')">
+        <span class="drawer-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><polyline points="2 20 22 20"/></svg></span>
+        Résultats
+      </div>
+      <div class="drawer-nav-item" data-trainer-view="presence" onclick="switchTrainerView('presence')">
+        <span class="drawer-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><circle cx="19" cy="11" r="2" fill="currentColor"/></svg></span>
+        Présence
+      </div>
+      <div class="drawer-nav-label">Cours en direct</div>
+      <div class="drawer-nav-item" data-trainer-view="live" onclick="switchTrainerView('live')">
+        <span class="drawer-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></span>
+        En direct
+      </div>
+      <div class="drawer-nav-item" data-trainer-view="recordings" onclick="switchTrainerView('recordings')">
+        <span class="drawer-nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg></span>
+        Enregistrements
+      </div>
+    </nav>
+    <div class="drawer-logout">
+      <button class="drawer-logout-btn" onclick="trainerLogout()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Déconnexion
+      </button>
+    </div>
+  </aside>
 
   <!-- Nav mobile -->
   <div class="trainer-mobile-nav" id="trainer-mobile-nav">
@@ -9112,6 +9429,11 @@ function switchTrainerView(view) {
   document.querySelectorAll('[data-trainer-view]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.trainerView === view);
   });
+  // Auto-open accordion if active sub-item is inside it
+  document.querySelectorAll('#trainer-drawer .drawer-accordion').forEach(acc => {
+    if (acc.querySelector('.drawer-accordion-item.active')) acc.classList.add('open');
+  });
+  closeTrainerDrawer();
   const el = document.getElementById('trainer-view-' + view);
   if (el) el.classList.add('active');
   if (view === 'dashboard')   renderTrainerDashboard();
@@ -12429,6 +12751,55 @@ function closeStudentSidebar() {
   if (overlay) overlay.classList.remove('active');
 }
 
+// ══ ADMIN SIDEBAR DRAWER ══
+function openAdminDrawer() {
+  const drawer = document.getElementById('admin-drawer');
+  const overlay = document.getElementById('admin-drawer-overlay');
+  if (!drawer) return;
+  drawer.classList.add('open');
+  if (overlay) overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closeAdminDrawer() {
+  const drawer = document.getElementById('admin-drawer');
+  const overlay = document.getElementById('admin-drawer-overlay');
+  if (!drawer || !drawer.classList.contains('open')) return;
+  drawer.classList.remove('open');
+  if (overlay) overlay.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+// ══ TRAINER SIDEBAR DRAWER ══
+function openTrainerDrawer() {
+  const drawer = document.getElementById('trainer-drawer');
+  const overlay = document.getElementById('trainer-drawer-overlay');
+  if (!drawer) return;
+  // Sync profile info from topbar
+  const nameEl = document.getElementById('trainer-topbar-name-display');
+  const avatarEl = document.getElementById('trainer-topbar-avatar-display');
+  const drawerName = document.getElementById('trainer-drawer-name');
+  const drawerAvatar = document.getElementById('trainer-drawer-avatar');
+  if (nameEl && drawerName && nameEl.textContent.trim() !== '–') drawerName.textContent = nameEl.textContent;
+  if (avatarEl && drawerAvatar) drawerAvatar.textContent = avatarEl.textContent;
+  drawer.classList.add('open');
+  if (overlay) overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closeTrainerDrawer() {
+  const drawer = document.getElementById('trainer-drawer');
+  const overlay = document.getElementById('trainer-drawer-overlay');
+  if (!drawer || !drawer.classList.contains('open')) return;
+  drawer.classList.remove('open');
+  if (overlay) overlay.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+// ══ ACCORDÉON DU DRAWER ══
+function toggleDrawerAccordion(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+}
+
 function goToSelector() {
   goTo('selector');
 }
@@ -13118,9 +13489,14 @@ function renderExerciseTypesSelector() {
 // ══════════════════════════════════════════
 function switchAdminView(view, filterPromoId) {
   adminState.adminView = view;
-  document.querySelectorAll('.admin-nav-item, .admin-mobile-nav button').forEach(el => {
+  document.querySelectorAll('.admin-nav-item, .admin-mobile-nav button, #admin-drawer .drawer-nav-item, #admin-drawer .drawer-accordion-item').forEach(el => {
     el.classList.toggle('active', el.dataset.adminView === view);
   });
+  // Auto-open accordion if active sub-item is inside it
+  document.querySelectorAll('#admin-drawer .drawer-accordion').forEach(acc => {
+    if (acc.querySelector('.drawer-accordion-item.active')) acc.classList.add('open');
+  });
+  closeAdminDrawer();
   document.querySelectorAll('.admin-view').forEach(v => {
     v.style.display = v.id === 'admin-view-' + view ? 'block' : 'none';
   });
