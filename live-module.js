@@ -32,6 +32,24 @@ const liveState = {
   joinedAt:         0,
   markedPresent:    false,
   bannerDismissed:  false,
+  // ── Document partagé ──
+  pdfDoc:           null,   // objet pdf.js (formateur uniquement)
+  docPages:         [],     // [{type:'image'|'html', dataUrl?:'', html?:''}]
+  docCurrentPage:   0,
+  docName:          '',
+  docZoom:          1.0,
+};
+
+// ── État tableau blanc ──
+const wbState = {
+  active:       false,
+  tool:         'pen',      // 'pen' | 'marker' | 'eraser'
+  color:        '#ffffff',
+  size:         4,
+  drawing:      false,
+  lastPt:       null,
+  strokes:      [],         // pour replay
+  currentStroke: [],
 };
 
 // ══════════════════════════════════════════
@@ -224,6 +242,14 @@ async function openLiveRoom(sessionId, role) {
   liveState.joinedAt    = Date.now();
   liveState.markedPresent = false;
   liveState.lastChatCount = 0;
+  liveState.pdfDoc = null;
+  liveState.docPages = [];
+  liveState.docCurrentPage = 0;
+  liveState.docName = '';
+  liveState.docZoom = 1.0;
+  wbState.strokes = [];
+  wbState.active = false;
+  wbState.drawing = false;
 
   // Afficher l'overlay
   const overlay = document.getElementById('live-room-overlay');
@@ -336,6 +362,24 @@ async function initPeer(sessionId, role) {
       });
 
       peer.on('connection', (conn) => {
+        conn.on('open', () => {
+          // Envoyer la page courante du document au nouvel étudiant
+          if (liveState.docPages.length && liveState.docPages[liveState.docCurrentPage]) {
+            try {
+              conn.send({
+                type: 'doc-page-data',
+                pageData: liveState.docPages[liveState.docCurrentPage],
+                pageNum:  liveState.docCurrentPage,
+                total:    liveState.docPages.length,
+                name:     liveState.docName,
+              });
+            } catch(e) {}
+          }
+          // Envoyer les traits du tableau blanc
+          if (wbState.strokes.length) {
+            try { conn.send({ type: 'wb-init', strokes: wbState.strokes }); } catch(e) {}
+          }
+        });
         conn.on('data', (data) => handlePeerData(data));
         liveState.connections[conn.peer] = conn;
       });
@@ -431,11 +475,56 @@ function removeStudentVideoTile(peerId) {
 function handlePeerData(data) {
   if (!data || !data.type) return;
   if (data.type === 'chat') {
-    // Recevoir un message de chat via DataConnection (temps réel)
     const msgs = liveGetChat(liveState.sessionId);
     msgs.push(data.msg);
     liveSaveChat(liveState.sessionId, msgs);
     renderLiveChat();
+  } else if (data.type === 'session-end') {
+    handleSessionEnded();
+  } else if (data.type === 'doc-page-data') {
+    _receiveDocPageData(data);
+  } else if (data.type === 'doc-page') {
+    if (typeof data.pageNum === 'number' && liveState.docPages[data.pageNum]) {
+      liveState.docCurrentPage = data.pageNum;
+      liveDocShowCurrent();
+    }
+  } else if (data.type === 'doc-close') {
+    liveState.docPages = [];
+    liveState.docCurrentPage = 0;
+    liveState.docName = '';
+    const area = document.getElementById('live-doc-view-area');
+    const vw   = document.getElementById('live-main-video-wrapper');
+    if (area) area.classList.remove('active');
+    if (vw)   vw.style.display = '';
+    renderLiveDocsList();
+  } else if (data.type === 'wb-stroke') {
+    if (data.stroke) _receiveWbStroke(data.stroke);
+  } else if (data.type === 'wb-init') {
+    wbState.strokes = data.strokes || [];
+    if (wbState.strokes.length) {
+      const canvas = document.getElementById('live-whiteboard-canvas');
+      if (canvas) {
+        const area = document.getElementById('live-video-area');
+        if (area) { canvas.width = area.offsetWidth; canvas.height = area.offsetHeight; }
+        canvas.classList.add('active', 'view-only');
+        _redrawWb();
+      }
+    }
+  } else if (data.type === 'wb-clear') {
+    wbState.strokes = [];
+    const canvas = document.getElementById('live-whiteboard-canvas');
+    if (canvas) { const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); }
+  } else if (data.type === 'wb-toggle') {
+    const canvas = document.getElementById('live-whiteboard-canvas');
+    if (!canvas) return;
+    if (data.active) {
+      const area = document.getElementById('live-video-area');
+      if (area) { canvas.width = area.offsetWidth; canvas.height = area.offsetHeight; }
+      canvas.classList.add('active', 'view-only');
+      _redrawWb();
+    } else {
+      canvas.classList.remove('active', 'view-only');
+    }
   }
 }
 
@@ -714,6 +803,23 @@ function cleanupLive() {
   if (liveState.attendeeSaveTimer) { clearInterval(liveState.attendeeSaveTimer); liveState.attendeeSaveTimer = null; }
   liveState.presencePollTimer = null;
   liveState.sessionTimerInterval = null;
+  // Réinitialiser document + tableau blanc
+  liveState.pdfDoc = null;
+  liveState.docPages = [];
+  liveState.docCurrentPage = 0;
+  liveState.docName = '';
+  liveState.docZoom = 1.0;
+  wbState.strokes = [];
+  wbState.active = false;
+  wbState.drawing = false;
+  const wbCanvas = document.getElementById('live-whiteboard-canvas');
+  if (wbCanvas) { wbCanvas.classList.remove('active','view-only'); try { const ctx=wbCanvas.getContext('2d'); ctx.clearRect(0,0,wbCanvas.width,wbCanvas.height); } catch(e){} }
+  const wbToolbar = document.getElementById('live-wb-toolbar');
+  if (wbToolbar) wbToolbar.classList.remove('active');
+  const docArea = document.getElementById('live-doc-view-area');
+  if (docArea) docArea.classList.remove('active');
+  const vw = document.getElementById('live-main-video-wrapper');
+  if (vw) vw.style.display = '';
 
   // Nettoyer le pulse en ligne (si étudiant)
   // On ne supprime PAS hermes_online_ car le système de présence classique
@@ -1153,10 +1259,25 @@ function updateLiveControls() {
     recBtn.querySelector('.live-ctrl-label').textContent = liveState.recording ? 'Enreg…' : 'Enreg.';
   }
 
+  // Documents
+  const docsBtn = document.getElementById('live-btn-docs');
+  if (docsBtn) docsBtn.classList.toggle('active-screen', liveState.docPages.length > 0);
+
+  // Tableau blanc
+  const wbBtn = document.getElementById('live-btn-wb');
+  if (wbBtn) {
+    wbBtn.classList.toggle('active-wb', wbState.active);
+    wbBtn.querySelector('.live-ctrl-label').textContent = wbState.active ? 'Tableau ✓' : 'Tableau';
+  }
+
   // Masquer les boutons formateur si étudiant
   if (liveState.role === 'student') {
     if (screenBtn) screenBtn.style.display = 'none';
     if (recBtn)    recBtn.style.display    = 'none';
+    if (docsBtn)   docsBtn.style.display   = 'none';
+    if (wbBtn)     wbBtn.style.display     = 'none';
+    const fileInput = document.getElementById('live-doc-file-input');
+    if (fileInput) fileInput.style.display = 'none';
   }
 }
 
@@ -1171,6 +1292,9 @@ function switchLivePanel(panel) {
   });
   document.getElementById('live-participants-panel').classList.toggle('active', panel === 'participants');
   document.getElementById('live-chat-panel').classList.toggle('active', panel === 'chat');
+  const docsPanel = document.getElementById('live-docs-panel');
+  if (docsPanel) docsPanel.classList.toggle('active', panel === 'documents');
+  if (panel === 'documents') renderLiveDocsList();
 }
 
 function escHtml(str) {
@@ -1618,6 +1742,432 @@ async function downloadLiveRecording(blobKey, title) {
   } catch(e) {
     showNotif('⚠️ Impossible de télécharger l\'enregistrement.', 'error');
   }
+}
+
+// ══════════════════════════════════════════
+//  PARTAGE DE DOCUMENTS
+// ══════════════════════════════════════════
+
+function liveOpenDocPicker() {
+  if (liveState.role !== 'trainer') return;
+  const inp = document.getElementById('live-doc-file-input');
+  if (inp) inp.click();
+}
+
+async function liveHandleDocFile(file) {
+  if (!file || liveState.role !== 'trainer') return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const maxMB = 25;
+  if (file.size > maxMB * 1024 * 1024) {
+    alert('Fichier trop volumineux (maximum ' + maxMB + ' Mo). Compressez le fichier ou exportez en PDF plus léger.');
+    return;
+  }
+  showLiveConnecting(true);
+  try {
+    if (ext === 'pdf') {
+      await _liveLoadPdf(file);
+    } else if (['jpg','jpeg','png','webp','gif'].includes(ext)) {
+      await _liveLoadImage(file);
+    } else if (['doc','docx'].includes(ext)) {
+      await _liveLoadDocx(file);
+    } else {
+      alert('Format non supporté. Utilisez PDF, DOCX, JPG ou PNG.');
+    }
+  } catch(e) {
+    console.error('[Live] Erreur chargement document:', e);
+    alert('Erreur lors du chargement du document.');
+  }
+  showLiveConnecting(false);
+}
+
+function _readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload  = e => resolve(e.target.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+async function _renderPdfPageToDataUrl(pdfDoc, pageNum) {
+  const page     = await pdfDoc.getPage(pageNum);
+  const viewport = page.getViewport({ scale: 1.2 });
+  const canvas   = document.createElement('canvas');
+  canvas.width   = viewport.width;
+  canvas.height  = viewport.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  return canvas.toDataURL('image/jpeg', 0.72);
+}
+
+async function _liveLoadPdf(file) {
+  if (typeof pdfjsLib === 'undefined') {
+    alert('pdf.js non disponible.'); return;
+  }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  liveState.pdfDoc = pdfDoc;
+  liveState.docPages = [];
+  for (let i = 1; i <= pdfDoc.numPages; i++) {
+    const dataUrl = await _renderPdfPageToDataUrl(pdfDoc, i);
+    liveState.docPages.push({ type: 'image', dataUrl });
+  }
+  liveState.docCurrentPage = 0;
+  liveState.docName  = file.name;
+  liveState.docZoom  = 1.0;
+  liveDocShowCurrent();
+  _liveDocBroadcastCurrent();
+  renderLiveDocsList();
+  // Afficher le badge
+  const badge = document.getElementById('live-docs-badge');
+  if (badge) { badge.textContent = pdfDoc.numPages; badge.style.display = 'inline-flex'; }
+}
+
+async function _liveLoadImage(file) {
+  const dataUrl = await _readFileAsDataUrl(file);
+  liveState.docPages = [{ type: 'image', dataUrl }];
+  liveState.docCurrentPage = 0;
+  liveState.docName  = file.name;
+  liveState.docZoom  = 1.0;
+  liveDocShowCurrent();
+  _liveDocBroadcastCurrent();
+  renderLiveDocsList();
+}
+
+async function _liveLoadDocx(file) {
+  if (typeof mammoth === 'undefined') {
+    // Fallback: afficher comme téléchargement
+    alert('Conversion DOCX non disponible. Exportez votre document en PDF pour le partager.');
+    return;
+  }
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.convertToHtml({ arrayBuffer });
+  liveState.docPages = [{ type: 'html', html: result.value }];
+  liveState.docCurrentPage = 0;
+  liveState.docName  = file.name;
+  liveState.docZoom  = 1.0;
+  liveDocShowCurrent();
+  _liveDocBroadcastCurrent();
+  renderLiveDocsList();
+}
+
+function liveDocShowCurrent() {
+  const pages = liveState.docPages;
+  const area  = document.getElementById('live-doc-view-area');
+  const vw    = document.getElementById('live-main-video-wrapper');
+
+  if (!pages.length) {
+    if (area) area.classList.remove('active');
+    if (vw)   vw.style.display = '';
+    return;
+  }
+
+  if (area) area.classList.add('active');
+  if (vw)   vw.style.display = 'none';
+
+  const page    = pages[liveState.docCurrentPage];
+  const img     = document.getElementById('live-doc-img-view');
+  const htmlDiv = document.getElementById('live-doc-html-view');
+  const zoom    = liveState.docZoom || 1.0;
+
+  if (page && page.type === 'image') {
+    if (img) { img.src = page.dataUrl; img.style.display = 'block'; img.style.transform = 'scale(' + zoom + ')'; }
+    if (htmlDiv) htmlDiv.style.display = 'none';
+  } else if (page && page.type === 'html') {
+    if (htmlDiv) { htmlDiv.innerHTML = page.html; htmlDiv.style.display = 'block'; htmlDiv.style.transform = 'scale(' + zoom + ')'; }
+    if (img) img.style.display = 'none';
+  }
+
+  const info = document.getElementById('live-doc-page-info');
+  if (info) info.textContent = (liveState.docCurrentPage + 1) + ' / ' + pages.length;
+  const nameEl = document.getElementById('live-doc-name');
+  if (nameEl) nameEl.textContent = liveState.docName || '';
+  const zoomEl = document.getElementById('live-doc-zoom-level');
+  if (zoomEl) zoomEl.textContent = Math.round(zoom * 100) + '%';
+  const prevBtn = document.getElementById('live-doc-prev-btn');
+  const nextBtn = document.getElementById('live-doc-next-btn');
+  if (prevBtn) prevBtn.disabled = liveState.docCurrentPage <= 0;
+  if (nextBtn) nextBtn.disabled = liveState.docCurrentPage >= pages.length - 1;
+
+  updateLiveControls();
+}
+
+function liveDocPrevPage() {
+  if (liveState.docCurrentPage <= 0) return;
+  liveState.docCurrentPage--;
+  liveDocShowCurrent();
+  if (liveState.role === 'trainer') _liveDocBroadcastCurrent();
+}
+
+function liveDocNextPage() {
+  if (liveState.docCurrentPage >= liveState.docPages.length - 1) return;
+  liveState.docCurrentPage++;
+  liveDocShowCurrent();
+  if (liveState.role === 'trainer') _liveDocBroadcastCurrent();
+}
+
+function liveDocZoom(delta) {
+  liveState.docZoom = Math.max(0.3, Math.min(3.0, (liveState.docZoom || 1.0) + delta));
+  liveDocShowCurrent();
+}
+
+function liveDocClose() {
+  liveState.docPages = [];
+  liveState.pdfDoc   = null;
+  liveState.docCurrentPage = 0;
+  liveState.docName  = '';
+  liveDocShowCurrent(); // will hide area
+  renderLiveDocsList();
+  const badge = document.getElementById('live-docs-badge');
+  if (badge) badge.style.display = 'none';
+  if (liveState.role === 'trainer') {
+    Object.values(liveState.connections).forEach(conn => {
+      try { conn.send({ type: 'doc-close' }); } catch(e) {}
+    });
+  }
+  updateLiveControls();
+}
+
+function _liveDocBroadcastCurrent() {
+  if (!liveState.docPages.length) return;
+  const page = liveState.docPages[liveState.docCurrentPage];
+  if (!page) return;
+  Object.values(liveState.connections).forEach(conn => {
+    try {
+      conn.send({
+        type:     'doc-page-data',
+        pageData: page,
+        pageNum:  liveState.docCurrentPage,
+        total:    liveState.docPages.length,
+        name:     liveState.docName,
+      });
+    } catch(e) {}
+  });
+}
+
+function _receiveDocPageData(data) {
+  if (!data || !data.pageData) return;
+  // Stocker la page reçue
+  if (!liveState.docPages.length || liveState.docPages.length !== data.total) {
+    liveState.docPages = new Array(data.total || 1).fill(null);
+  }
+  liveState.docPages[data.pageNum] = data.pageData;
+  liveState.docCurrentPage = data.pageNum;
+  liveState.docName  = data.name || 'Document';
+  liveDocShowCurrent();
+  renderLiveDocsList();
+  // Badge
+  const badge = document.getElementById('live-docs-badge');
+  if (badge) { badge.textContent = data.total; badge.style.display = 'inline-flex'; }
+}
+
+function renderLiveDocsList() {
+  const inner = document.getElementById('live-docs-panel-inner');
+  if (!inner) return;
+  const isTrainer = liveState.role === 'trainer';
+  const pages     = liveState.docPages || [];
+  let html = '';
+
+  if (isTrainer) {
+    html += `<label class="live-doc-upload-zone" onclick="document.getElementById('live-doc-file-input').click()">
+      <span class="live-doc-upload-icon">📄</span>
+      <div class="live-doc-upload-text"><strong>Téléverser un document</strong><br>PDF · DOCX · JPG · PNG (max 25 Mo)</div>
+    </label>`;
+  }
+
+  const hasDoc = pages.length && pages.some(p => p != null);
+  if (hasDoc) {
+    const icon = _getDocIcon(liveState.docName || '');
+    html += `<div class="live-doc-item active" onclick="liveDocShowCurrent()">
+      <span class="live-doc-item-icon">${icon}</span>
+      <div class="live-doc-item-name">${escHtml(liveState.docName || 'Document')}</div>
+      <span class="live-doc-item-meta">${pages.length} p.</span>
+    </div>`;
+    if (isTrainer) {
+      html += `<div style="text-align:center;margin-top:0.5rem;">
+        <button onclick="liveDocClose()" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;border-radius:8px;padding:0.3rem 0.8rem;font-size:0.7rem;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">✕ Retirer le document</button>
+      </div>`;
+    }
+  } else {
+    html += `<div id="live-docs-no-doc">Aucun document partagé.<br><span style="font-size:0.68rem;opacity:0.7;">${isTrainer ? 'Utilisez le bouton ci-dessus pour partager.' : 'Le formateur n\'a pas encore partagé de document.'}</span></div>`;
+  }
+
+  inner.innerHTML = html;
+}
+
+function _getDocIcon(name) {
+  const ext = (name || '').split('.').pop().toLowerCase();
+  if (ext === 'pdf') return '📕';
+  if (['jpg','jpeg','png','gif','webp'].includes(ext)) return '🖼️';
+  if (['doc','docx'].includes(ext)) return '📝';
+  if (['ppt','pptx'].includes(ext)) return '📊';
+  return '📄';
+}
+
+// ══════════════════════════════════════════
+//  TABLEAU BLANC (WHITEBOARD)
+// ══════════════════════════════════════════
+
+function liveToggleWhiteboard() {
+  if (liveState.role !== 'trainer') return;
+  wbState.active = !wbState.active;
+  const canvas  = document.getElementById('live-whiteboard-canvas');
+  const toolbar = document.getElementById('live-wb-toolbar');
+  if (canvas)  canvas.classList.toggle('active', wbState.active);
+  if (toolbar) toolbar.classList.toggle('active', wbState.active);
+  updateLiveControls();
+  // Initier ou redimensionner le canvas
+  if (wbState.active) _initWbCanvas();
+  // Diffuser aux étudiants
+  Object.values(liveState.connections).forEach(conn => {
+    try { conn.send({ type: 'wb-toggle', active: wbState.active }); } catch(e) {}
+  });
+}
+
+function _initWbCanvas() {
+  const canvas = document.getElementById('live-whiteboard-canvas');
+  if (!canvas) return;
+  const area = document.getElementById('live-video-area');
+  if (area) { canvas.width = area.offsetWidth; canvas.height = area.offsetHeight; }
+  _redrawWb();
+  canvas.onpointerdown = _wbDown;
+  canvas.onpointermove = _wbMove;
+  canvas.onpointerup   = _wbUp;
+  canvas.onpointerleave = _wbUp;
+}
+
+function _wbNorm(e, canvas) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+}
+
+function _wbDown(e) {
+  if (!wbState.active || liveState.role !== 'trainer') return;
+  wbState.drawing = true;
+  wbState.lastPt  = _wbNorm(e, this);
+  wbState.currentStroke = [wbState.lastPt];
+  e.preventDefault();
+}
+
+function _wbMove(e) {
+  if (!wbState.drawing) return;
+  const canvas = document.getElementById('live-whiteboard-canvas');
+  if (!canvas) return;
+  const pt  = _wbNorm(e, canvas);
+  const ctx = canvas.getContext('2d');
+
+  const isEraser = wbState.tool === 'eraser';
+  const isMarker = wbState.tool === 'marker';
+
+  ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
+  ctx.strokeStyle = isEraser ? 'rgba(0,0,0,1)' : wbState.color;
+  ctx.globalAlpha = isMarker ? 0.45 : 1.0;
+  ctx.lineWidth   = isEraser ? wbState.size * 6 : (isMarker ? wbState.size * 3 : wbState.size);
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+
+  const last = wbState.lastPt;
+  ctx.beginPath();
+  ctx.moveTo(last.x * canvas.width, last.y * canvas.height);
+  ctx.lineTo(pt.x * canvas.width, pt.y * canvas.height);
+  ctx.stroke();
+
+  ctx.globalAlpha = 1.0;
+  ctx.globalCompositeOperation = 'source-over';
+
+  wbState.lastPt = pt;
+  wbState.currentStroke.push(pt);
+  e.preventDefault();
+}
+
+function _wbUp(e) {
+  if (!wbState.drawing) return;
+  wbState.drawing = false;
+  if (wbState.currentStroke.length < 2) { wbState.currentStroke = []; return; }
+  const stroke = {
+    points: wbState.currentStroke,
+    color:  wbState.color,
+    size:   wbState.size,
+    tool:   wbState.tool,
+  };
+  wbState.strokes.push(stroke);
+  wbState.currentStroke = [];
+  // Diffuser
+  Object.values(liveState.connections).forEach(conn => {
+    try { conn.send({ type: 'wb-stroke', stroke }); } catch(e) {}
+  });
+  e.preventDefault();
+}
+
+function _redrawWb() {
+  const canvas = document.getElementById('live-whiteboard-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  wbState.strokes.forEach(s => _drawWbStroke(ctx, canvas, s));
+}
+
+function _drawWbStroke(ctx, canvas, stroke) {
+  if (!stroke.points || stroke.points.length < 2) return;
+  const isEraser = stroke.tool === 'eraser';
+  const isMarker = stroke.tool === 'marker';
+  ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
+  ctx.strokeStyle = isEraser ? 'rgba(0,0,0,1)' : (stroke.color || '#fff');
+  ctx.globalAlpha = isMarker ? 0.45 : 1.0;
+  ctx.lineWidth   = isEraser ? stroke.size * 6 : (isMarker ? stroke.size * 3 : stroke.size);
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+  ctx.beginPath();
+  ctx.moveTo(stroke.points[0].x * canvas.width, stroke.points[0].y * canvas.height);
+  for (let i = 1; i < stroke.points.length; i++) {
+    ctx.lineTo(stroke.points[i].x * canvas.width, stroke.points[i].y * canvas.height);
+  }
+  ctx.stroke();
+  ctx.globalAlpha = 1.0;
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function _receiveWbStroke(stroke) {
+  wbState.strokes.push(stroke);
+  const canvas = document.getElementById('live-whiteboard-canvas');
+  if (!canvas) return;
+  if (!canvas.classList.contains('active')) {
+    const area = document.getElementById('live-video-area');
+    if (area) { canvas.width = area.offsetWidth; canvas.height = area.offsetHeight; }
+    canvas.classList.add('active', 'view-only');
+  }
+  const ctx = canvas.getContext('2d');
+  _drawWbStroke(ctx, canvas, stroke);
+}
+
+function liveWbClear() {
+  wbState.strokes = [];
+  const canvas = document.getElementById('live-whiteboard-canvas');
+  if (canvas) { const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); }
+  if (liveState.role === 'trainer') {
+    Object.values(liveState.connections).forEach(conn => {
+      try { conn.send({ type: 'wb-clear' }); } catch(e) {}
+    });
+  }
+}
+
+function setWbTool(tool) {
+  wbState.tool = tool;
+  document.querySelectorAll('.wb-tool-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('wb-tool-' + tool);
+  if (btn) btn.classList.add('active');
+}
+
+function setWbColor(color) {
+  wbState.color = color;
+  document.querySelectorAll('.wb-color-swatch').forEach(s => {
+    s.classList.toggle('active', s.dataset.color === color);
+  });
+}
+
+function setWbSize(val) {
+  wbState.size = Math.max(1, parseInt(val) || 4);
 }
 
 // ══════════════════════════════════════════

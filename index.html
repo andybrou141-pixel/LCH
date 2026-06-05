@@ -11,6 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <link rel="stylesheet" href="live-module.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <style>
   :root {
     --gold: #C9A84C;
@@ -4908,6 +4909,58 @@
         </div>
       </div>
 
+      <!-- Zone document partagé -->
+      <div id="live-doc-view-area">
+        <div id="live-doc-canvas-scroll">
+          <div id="live-doc-canvas-wrap">
+            <img id="live-doc-img-view" alt="">
+            <div id="live-doc-html-view"></div>
+          </div>
+        </div>
+        <div id="live-doc-nav-bar">
+          <span id="live-doc-name"></span>
+          <button id="live-doc-prev-btn" class="live-doc-nav-btn" onclick="liveDocPrevPage()" title="Page précédente">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span id="live-doc-page-info">1 / 1</span>
+          <button id="live-doc-next-btn" class="live-doc-nav-btn" onclick="liveDocNextPage()" title="Page suivante">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <div class="wb-sep" style="margin:0 0.25rem;"></div>
+          <button class="live-doc-zoom-btn" onclick="liveDocZoom(-0.15)" title="Réduire">−</button>
+          <span id="live-doc-zoom-level">100%</span>
+          <button class="live-doc-zoom-btn" onclick="liveDocZoom(0.15)" title="Agrandir">+</button>
+          <div class="wb-sep" style="margin:0 0.25rem;"></div>
+          <button id="live-doc-close-btn" onclick="liveDocClose()">✕ Fermer</button>
+        </div>
+      </div>
+
+      <!-- Tableau blanc (canvas overlay) -->
+      <canvas id="live-whiteboard-canvas"></canvas>
+
+      <!-- Barre d'outils tableau blanc -->
+      <div id="live-wb-toolbar">
+        <button class="wb-tool-btn active" id="wb-tool-pen" onclick="setWbTool('pen')" title="Stylo">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+        </button>
+        <button class="wb-tool-btn" id="wb-tool-marker" onclick="setWbTool('marker')" title="Surligneur">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 14V8a2 2 0 0 1 4 0v6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+        <button class="wb-tool-btn" id="wb-tool-eraser" onclick="setWbTool('eraser')" title="Gomme">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16l10-10 7 7-3 3"/><path d="M6 20h4"/></svg>
+        </button>
+        <div class="wb-sep"></div>
+        <div class="wb-color-swatch active" style="background:#ffffff" onclick="setWbColor('#ffffff')" data-color="#ffffff" title="Blanc"></div>
+        <div class="wb-color-swatch" style="background:#ef4444" onclick="setWbColor('#ef4444')" data-color="#ef4444" title="Rouge"></div>
+        <div class="wb-color-swatch" style="background:#3b82f6" onclick="setWbColor('#3b82f6')" data-color="#3b82f6" title="Bleu"></div>
+        <div class="wb-color-swatch" style="background:#fbbf24" onclick="setWbColor('#fbbf24')" data-color="#fbbf24" title="Jaune"></div>
+        <div class="wb-color-swatch" style="background:#22C55E" onclick="setWbColor('#22C55E')" data-color="#22C55E" title="Vert"></div>
+        <div class="wb-sep"></div>
+        <input type="range" id="wb-size-range" min="2" max="22" value="4" oninput="setWbSize(this.value)" title="Épaisseur">
+        <div class="wb-sep"></div>
+        <button class="wb-clear-btn" onclick="liveWbClear()">Effacer</button>
+      </div>
+
       <!-- Bande des étudiants (formateur) -->
       <div id="live-student-strip"></div>
 
@@ -4930,6 +4983,10 @@
           Chat
           <span class="live-tab-badge" id="live-chat-badge" style="display:none;">0</span>
         </button>
+        <button class="live-panel-tab" data-panel="documents" onclick="switchLivePanel('documents')">
+          Documents
+          <span class="live-tab-badge" id="live-docs-badge" style="display:none;">1</span>
+        </button>
       </div>
 
       <!-- Liste des participants -->
@@ -4945,6 +5002,13 @@
           <button id="live-chat-send-btn" onclick="liveSendChat()" title="Envoyer">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
+        </div>
+      </div>
+
+      <!-- Documents -->
+      <div id="live-docs-panel">
+        <div id="live-docs-panel-inner">
+          <div id="live-docs-no-doc">Aucun document partagé.<br><span style="font-size:0.68rem;opacity:0.7;">Le formateur peut partager un PDF, une image ou un document Word pendant le cours.</span></div>
         </div>
       </div>
     </div>
@@ -4975,6 +5039,19 @@
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
       </div>
       <span class="live-ctrl-label">Enreg.</span>
+    </button>
+    <button id="live-btn-docs" class="live-ctrl-btn" onclick="liveOpenDocPicker()">
+      <div class="live-ctrl-btn-icon">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      </div>
+      <span class="live-ctrl-label">Document</span>
+    </button>
+    <input type="file" id="live-doc-file-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.gif" style="display:none" onchange="liveHandleDocFile(this.files[0]);this.value=''">
+    <button id="live-btn-wb" class="live-ctrl-btn" onclick="liveToggleWhiteboard()">
+      <div class="live-ctrl-btn-icon">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 8l2 2 4-4"/></svg>
+      </div>
+      <span class="live-ctrl-label">Tableau</span>
     </button>
     <button id="live-btn-end" class="live-ctrl-btn live-ctrl-btn-end" onclick="liveEndOrLeave()">
       <div class="live-ctrl-btn-icon" style="background:rgba(255,255,255,0.2);">
