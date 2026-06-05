@@ -1,4 +1,4 @@
-/* ══════════════════════════════════════════════════════════════
+﻿/* ══════════════════════════════════════════════════════════════
    HERMES KNOWLEDGE — MODULE COURS EN DIRECT
    WebRTC (PeerJS) · MediaRecorder · Chat · Présence automatique
    ══════════════════════════════════════════════════════════════ */
@@ -122,12 +122,8 @@ function initials(name) {
 
 // Lire la session live active depuis localStorage (pour polling cross-tab)
 function getActiveLiveSession() {
-  try {
-    const raw = localStorage.getItem('hermes_knowledge_data');
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    return (data.liveSessions || []).find(s => s.status === 'active') || null;
-  } catch(e) { return null; }
+  try { return (appData.liveSessions || []).find(s => s.status === "active") || null; }
+  catch(e) { return null; }
 }
 
 // ══════════════════════════════════════════
@@ -1193,7 +1189,25 @@ function stopLiveStudentPolling() {
   _liveBannerPoll = null;
 }
 
+
+// Refresh périodique depuis JSONBin pour voir les sessions live des autres appareils
+let _liveRefreshCount = 0;
+async function _refreshLiveFromJsonBin() {
+  try {
+    const res = await fetch(JSONBIN_URL + "/latest", { headers: { "X-Master-Key": JSONBIN_KEY } });
+    if (res.ok) {
+      const json = await res.json();
+      const fresh = json.record || json;
+      if (fresh && Array.isArray(fresh.liveSessions)) appData.liveSessions = fresh.liveSessions;
+      if (fresh && Array.isArray(fresh.users))        appData.users        = fresh.users;
+    }
+  } catch(e) {}
+}
+
 function checkLiveStudentNotification() {
+  // Rafraîchir les données JSONBin toutes les ~15s (5 polls x 3s)
+  _liveRefreshCount++;
+  if (_liveRefreshCount >= 5) { _liveRefreshCount = 0; _refreshLiveFromJsonBin(); }
   if (auth.role !== 'student') return;
   if (liveState.sessionId) return; // déjà dans une session
 

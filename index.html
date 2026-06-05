@@ -11968,12 +11968,8 @@ function renderDashboardWidgets() {
 
 // Lit la session live active depuis localStorage (données fraîches)
 function getActiveLiveSessionForStudent() {
-  try {
-    const raw = localStorage.getItem('hermes_knowledge_data');
-    if (!raw) return null;
-    const d = JSON.parse(raw);
-    return (d.liveSessions || []).find(s => s.status === 'active') || null;
-  } catch(e) { return null; }
+  try { return (appData.liveSessions || []).find(s => s.status === "active") || null; }
+  catch(e) { return null; }
 }
 
 // Met à jour la carte "Cours en direct" du tableau de bord
