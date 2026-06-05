@@ -12632,46 +12632,60 @@ function closeStudentSidebar() {
 }
 
 // ══ ADMIN SIDEBAR DRAWER ══
+// ══ ADMIN SIDEBAR DRAWER ══
 function openAdminDrawer() {
   const drawer = document.getElementById('admin-drawer');
   const overlay = document.getElementById('admin-drawer-overlay');
   if (!drawer) return;
-  drawer.classList.add('open');
-  if (overlay) overlay.classList.add('active');
-  document.body.style.overflow = 'hidden';
+  drawer.setAttribute('style',
+    'display:block!important;position:fixed!important;top:0;left:0;' +
+    'width:280px;max-width:85vw;height:100vh;overflow-y:auto;' +
+    '-webkit-overflow-scrolling:touch;background:#fff;' +
+    'z-index:9999;box-shadow:6px 0 32px rgba(0,0,0,0.22);'
+  );
+  if (overlay) overlay.setAttribute('style',
+    'display:block!important;position:fixed!important;top:0;left:0;' +
+    'right:0;bottom:0;background:rgba(0,0,0,0.52);z-index:9998;cursor:pointer;'
+  );
+  document.documentElement.style.overflowY = 'hidden';
 }
 function closeAdminDrawer() {
   const drawer = document.getElementById('admin-drawer');
   const overlay = document.getElementById('admin-drawer-overlay');
-  if (!drawer || !drawer.classList.contains('open')) return;
-  drawer.classList.remove('open');
-  if (overlay) overlay.classList.remove('active');
-  document.body.style.overflow = '';
+  if (drawer) drawer.setAttribute('style', 'display:none');
+  if (overlay) overlay.setAttribute('style', 'display:none');
+  document.documentElement.style.overflowY = '';
 }
 
-// ══ TRAINER SIDEBAR DRAWER ══
+// ══ FORMATEUR SIDEBAR DRAWER ══
 function openTrainerDrawer() {
   const drawer = document.getElementById('trainer-drawer');
   const overlay = document.getElementById('trainer-drawer-overlay');
   if (!drawer) return;
-  // Sync profile info from topbar
   const nameEl = document.getElementById('trainer-topbar-name-display');
   const avatarEl = document.getElementById('trainer-topbar-avatar-display');
   const drawerName = document.getElementById('trainer-drawer-name');
   const drawerAvatar = document.getElementById('trainer-drawer-avatar');
   if (nameEl && drawerName && nameEl.textContent.trim() !== '–') drawerName.textContent = nameEl.textContent;
   if (avatarEl && drawerAvatar) drawerAvatar.textContent = avatarEl.textContent;
-  drawer.classList.add('open');
-  if (overlay) overlay.classList.add('active');
-  document.body.style.overflow = 'hidden';
+  drawer.setAttribute('style',
+    'display:block!important;position:fixed!important;top:0;left:0;' +
+    'width:280px;max-width:85vw;height:100vh;overflow-y:auto;' +
+    '-webkit-overflow-scrolling:touch;background:#fff;' +
+    'z-index:9999;box-shadow:6px 0 32px rgba(0,0,0,0.22);'
+  );
+  if (overlay) overlay.setAttribute('style',
+    'display:block!important;position:fixed!important;top:0;left:0;' +
+    'right:0;bottom:0;background:rgba(0,0,0,0.52);z-index:9998;cursor:pointer;'
+  );
+  document.documentElement.style.overflowY = 'hidden';
 }
 function closeTrainerDrawer() {
   const drawer = document.getElementById('trainer-drawer');
   const overlay = document.getElementById('trainer-drawer-overlay');
-  if (!drawer || !drawer.classList.contains('open')) return;
-  drawer.classList.remove('open');
-  if (overlay) overlay.classList.remove('active');
-  document.body.style.overflow = '';
+  if (drawer) drawer.setAttribute('style', 'display:none');
+  if (overlay) overlay.setAttribute('style', 'display:none');
+  document.documentElement.style.overflowY = '';
 }
 
 // ══ ACCORDÉON DU DRAWER ══
@@ -16670,8 +16684,8 @@ function renderTrainerAssessments() {
 <!-- ══ DRAWERS MOBILES — directement dans <body> pour position:fixed correct ══ -->
 
 <!-- ADMIN DRAWER -->
-<div class="drawer-overlay" id="admin-drawer-overlay" onclick="closeAdminDrawer()"></div>
-<aside class="sidebar-drawer" id="admin-drawer">
+<div class="drawer-overlay" id="admin-drawer-overlay" onclick="closeAdminDrawer()" style="display:none"></div>
+<aside class="sidebar-drawer" id="admin-drawer" style="display:none">
   <div class="drawer-header">
     <div class="drawer-brand">
       <div class="drawer-logo" style="background:linear-gradient(135deg,#1a5c40,#22c55e);">H</div>
@@ -16733,8 +16747,8 @@ function renderTrainerAssessments() {
 </aside>
 
 <!-- FORMATEUR DRAWER -->
-<div class="drawer-overlay" id="trainer-drawer-overlay" onclick="closeTrainerDrawer()"></div>
-<aside class="sidebar-drawer" id="trainer-drawer">
+<div class="drawer-overlay" id="trainer-drawer-overlay" onclick="closeTrainerDrawer()" style="display:none"></div>
+<aside class="sidebar-drawer" id="trainer-drawer" style="display:none">
   <div class="drawer-header">
     <div class="drawer-brand">
       <div class="drawer-logo" style="background:linear-gradient(135deg,#2d6a4f,#22c55e);">H</div>
