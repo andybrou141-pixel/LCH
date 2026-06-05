@@ -7037,6 +7037,13 @@
 <script src="data-concours.js"></script>
 <script>
 // ══════════════════════════════════════════
+//  JSONBIN — Base de données en ligne
+// ══════════════════════════════════════════
+const JSONBIN_ID  = "6a22a4cef5f4af5e29bd2e33";
+const JSONBIN_KEY = "$2a$10$0C9F6sPdC03PqfZXnjTnked9IIpFlH/UHr7uKppJLmiaoXvhsw7RG";
+const JSONBIN_URL = "https://api.jsonbin.io/v3/b/" + JSONBIN_ID;
+
+// ══════════════════════════════════════════
 //  DEFAULT DATA
 // ══════════════════════════════════════════
 const DATA_VERSION = 4;
@@ -12420,58 +12427,59 @@ function mergeQuestionsBank() {
   return updated;
 }
 
-function loadAppData() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      appData = JSON.parse(saved);
-      if (!appData.tours?.length) appData.tours = [...DEFAULT_TOURS];
-      if (!appData.courses) appData.courses = [];
-      if (!appData.exerciseTypes) appData.exerciseTypes = [];
-      if (!appData.questions) appData.questions = {};
-      if (!appData.users) appData.users = [];
-      if (!appData.promotions) appData.promotions = [];
-      if (!appData.trainers)   appData.trainers   = [];
-      if (!appData.sessions) appData.sessions = [];
-      if (!appData.liveSessions)       appData.liveSessions       = [];
-      if (!appData.liveRecordings)     appData.liveRecordings     = [];
-      if (!appData.assessments)        appData.assessments        = [];
-      if (!appData.assessmentAttempts) appData.assessmentAttempts = [];
-      appData.trainers.forEach(t => { if (!t.schedule) t.schedule = []; });
-      appData.users.forEach(u => { if (!u.attendance) u.attendance = {}; });
-      appData.tours.sort((a, b) => (a.order || 0) - (b.order || 0));
-    } else {
-      appData = {
-        tours: [...DEFAULT_TOURS],
-        courses: [],
-        exerciseTypes: [],
-        questions: {},
-        users: [],
-        promotions: [],
-        trainers: [],
-        sessions: [],
-        liveSessions: [],
-        liveRecordings: [],
-        assessments: [],
-        assessmentAttempts: [],
-      };
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); } catch (e) {}
-    }
-  } catch (e) {
-    appData = {
-      tours: [...DEFAULT_TOURS],
-      courses: [],
-      exerciseTypes: [],
-      questions: {},
-      users: [],
-      promotions: [],
-      trainers: [],
-      liveSessions: [],
-      liveRecordings: [],
-    };
-  }
+function _fixAppDataFields(d) {
+  if (!d) return;
+  if (!d.tours || !d.tours.length) d.tours = [...DEFAULT_TOURS];
+  if (!d.courses)            d.courses = [];
+  if (!d.exerciseTypes)      d.exerciseTypes = [];
+  if (!d.questions)          d.questions = {};
+  if (!d.users)              d.users = [];
+  if (!d.promotions)         d.promotions = [];
+  if (!d.trainers)           d.trainers = [];
+  if (!d.sessions)           d.sessions = [];
+  if (!d.liveSessions)       d.liveSessions = [];
+  if (!d.liveRecordings)     d.liveRecordings = [];
+  if (!d.assessments)        d.assessments = [];
+  if (!d.assessmentAttempts) d.assessmentAttempts = [];
+  d.trainers.forEach(t => { if (!t.schedule) t.schedule = []; });
+  d.users.forEach(u => { if (!u.attendance) u.attendance = {}; });
+  d.tours.sort((a, b) => (a.order || 0) - (b.order || 0));
 }
 
+async function _saveToJsonBin() {
+  try {
+    await fetch(JSONBIN_URL, {
+      method: "PUT",
+      headers: { "X-Master-Key": JSONBIN_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify(appData)
+    });
+  } catch(e) { console.warn("[JSONBin] Save failed", e); }
+}
+
+async function loadAppData() {
+  const _emptyData = () => ({
+    tours: [...DEFAULT_TOURS], courses: [], exerciseTypes: [], questions: {},
+    users: [], promotions: [], trainers: [], sessions: [],
+    liveSessions: [], liveRecordings: [], assessments: [], assessmentAttempts: []
+  });
+  try {
+    const res = await fetch(JSONBIN_URL + "/latest", {
+      headers: { "X-Master-Key": JSONBIN_KEY }
+    });
+    if (res.ok) {
+      const json = await res.json();
+      appData = json.record || json;
+      _fixAppDataFields(appData);
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); } catch(e) {}
+      return;
+    }
+  } catch(e) { console.warn("[JSONBin] Load failed, fallback localStorage", e); }
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) { appData = JSON.parse(saved); _fixAppDataFields(appData); }
+    else { appData = _emptyData(); }
+  } catch(e) { appData = _emptyData(); }
+}
 function saveAppData(render = true) {
   try {
     // Les onglets non-formateur ne doivent pas écraser les données créées par le formateur
@@ -12494,6 +12502,7 @@ function saveAppData(render = true) {
       } catch(_e) {}
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+  _saveToJsonBin();
   } catch (e) {
     console.warn('localStorage indisponible', e);
   }
@@ -15305,7 +15314,7 @@ function closeVideoPlayer() {
 // ══════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════
-function initApp() {
+async function initApp() {
   try {
     // Migration : retirer les cours et QCM par défaut injectés automatiquement
     // Migration v3 : supprimer TOUS les cours/questions injectés automatiquement
@@ -15337,7 +15346,7 @@ function initApp() {
       } catch(e) {}
     }
 
-    loadAppData();
+    await loadAppData();
     // Nettoyer les heartbeats "en ligne" périmés (> 5 min) laissés par l'onglet précédent
     const _staleTs = Date.now() - 5 * 60 * 1000;
     for (let _i = localStorage.length - 1; _i >= 0; _i--) {
