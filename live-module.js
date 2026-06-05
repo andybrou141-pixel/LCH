@@ -404,7 +404,7 @@ async function initPeer(sessionId, role) {
             try { conn.send({ type: 'wb-init', strokes: wbState.strokes }); } catch(e) {}
           }
         });
-        conn.on('data', (data) => handlePeerData(data));
+        conn.on('data', (data) => handlePeerData(data, conn.peer));
         liveState.connections[conn.peer] = conn;
       });
 
@@ -467,12 +467,16 @@ function callTrainer(sessionId, attempt) {
     handleOutgoingCall(call, sessionId);
     liveState.calls[sessionId] = call;
 
-    // Connexion données pour le chat et whiteboard
+    // Connexion données pour le chat, whiteboard et documents
     if (!liveState.connections[sessionId]) {
       const conn = liveState.peer.connect(sessionId, { reliable: true });
       if (conn) {
-        conn.on('open', () => { liveState.connections[sessionId] = conn; });
-        conn.on('data', (data) => handlePeerData(data));
+        conn.on('open', () => {
+          liveState.connections[sessionId] = conn;
+          // Demander au formateur l'état actuel (whiteboard, document en cours)
+          try { conn.send({ type: 'sync-request' }); } catch(e) {}
+        });
+        conn.on('data', (data) => handlePeerData(data, sessionId));
         conn.on('error', (e) => console.warn('[Live] DataConn error:', e));
       }
     }
@@ -575,8 +579,36 @@ function removeStudentVideoTile(peerId) {
   updateParticipantsCountDisplay();
 }
 
-function handlePeerData(data) {
+function handlePeerData(data, fromPeerId) {
   if (!data || !data.type) return;
+
+  // Formateur : un étudiant demande l'état actuel (whiteboard + document)
+  if (data.type === 'sync-request') {
+    if (liveState.role !== 'trainer' || !fromPeerId) return;
+    const replyConn = liveState.connections[fromPeerId];
+    if (!replyConn) return;
+    // Envoyer l'état du tableau blanc
+    if (wbState.active || wbState.strokes.length) {
+      try { replyConn.send({ type: 'wb-toggle', active: true }); } catch(e) {}
+      if (wbState.strokes.length) {
+        try { replyConn.send({ type: 'wb-init', strokes: wbState.strokes }); } catch(e) {}
+      }
+    }
+    // Envoyer le document en cours
+    if (liveState.docPages.length && liveState.docPages[liveState.docCurrentPage]) {
+      try {
+        replyConn.send({
+          type:     'doc-page-data',
+          pageData: liveState.docPages[liveState.docCurrentPage],
+          pageNum:  liveState.docCurrentPage,
+          total:    liveState.docPages.length,
+          name:     liveState.docName,
+        });
+      } catch(e) {}
+    }
+    return;
+  }
+
   if (data.type === 'chat') {
     const msgs = liveGetChat(liveState.sessionId);
     msgs.push(data.msg);
