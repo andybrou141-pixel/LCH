@@ -9,15 +9,27 @@ const LIVE_REC_STORE  = 'recordings';
 const LIVE_POLL_MS    = 3000;   // intervalle de polling chat + présence
 const LIVE_PRESENCE_THRESHOLD_MS = 10 * 60 * 1000; // 10 min → marqué présent
 
+// ── Agora App ID ──
+const AGORA_APP_ID = 'e7f2f6d00ea940f9aae0b53afb69005a';
+
+// ── État Agora (audio/vidéo SFU) ──
+const agoraState = {
+  client:          null,  // AgoraRTC client
+  localAudioTrack: null,
+  localVideoTrack: null,
+  screenTrack:     null,
+  uid:             null,  // formateur = 1, étudiants = aléatoire
+};
+
 // ── État global du module live ──
 const liveState = {
   sessionId:        null,
   role:             null,    // 'trainer' | 'student'
-  peer:             null,    // instance PeerJS
+  peer:             null,    // PeerJS (DataConnections uniquement)
   connections:      {},      // peerId → DataConnection
-  calls:            {},      // remotePeerId → MediaConnection
-  localStream:      null,    // flux caméra/micro
-  screenStream:     null,    // flux partage d'écran
+  calls:            {},      // conservé pour compatibilité (vide avec Agora)
+  localStream:      null,    // MediaStream local (pour MediaRecorder)
+  screenStream:     null,    // conservé pour compatibilité
   recorder:         null,    // MediaRecorder
   recordedChunks:   [],
   recording:        false,
@@ -272,34 +284,11 @@ async function openLiveRoom(sessionId, role) {
     toggleBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
   }
 
-  // Connecter l'audio/vidéo local
+  // Initialiser Agora (audio/vidéo SFU — scalable 50+ étudiants)
   showLiveConnecting(true);
-  try {
-    liveState.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-  } catch(e) {
-    try {
-      liveState.localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-      liveState.camEnabled = false;
-      showNotif('Caméra inaccessible — connexion en audio uniquement.', '');
-    } catch(e2) {
-      liveState.localStream = null;
-      liveState.camEnabled = false;
-      liveState.micEnabled = false;
-      showNotif('Micro et caméra inaccessibles. Autorisez l\'accès dans les paramètres du navigateur puis rechargez.', 'error');
-    }
-  }
+  await initAgora(sessionId, role);
 
-  // Afficher le flux local dans le PiP
-  const localVid = document.getElementById('live-local-video');
-  if (localVid && liveState.localStream) {
-    localVid.srcObject = liveState.localStream;
-    localVid.play().catch(()=>{});
-    document.getElementById('live-local-pip').style.display = 'block';
-  } else {
-    document.getElementById('live-local-pip').style.display = 'none';
-  }
-
-  // Initialiser PeerJS
+  // Initialiser PeerJS (DataConnections uniquement : whiteboard, documents, chat)
   await initPeer(sessionId, role);
 
   // Démarrer les intervalles
@@ -324,84 +313,155 @@ function getLiveSessionById(id) {
 }
 
 // ══════════════════════════════════════════
-//  PEERJS — Initialisation WebRTC
+//  AGORA RTC — Audio/Vidéo SFU (scalable 50+ étudiants)
+// ══════════════════════════════════════════
+async function initAgora(sessionId, role) {
+  if (typeof AgoraRTC === 'undefined') {
+    showNotif('SDK Agora non chargé. Vérifiez votre connexion internet.', 'error');
+    return;
+  }
+  try {
+    AgoraRTC.setLogLevel(3); // warnings + errors seulement
+
+    agoraState.client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+
+    // UID : formateur = 1, étudiants = nombre aléatoire
+    agoraState.uid = role === 'trainer' ? 1 : Math.floor(Math.random() * 900000) + 2;
+
+    // Rejoindre le canal Agora (token null = mode test)
+    await agoraState.client.join(AGORA_APP_ID, sessionId, null, agoraState.uid);
+
+    // Créer et publier les pistes locales
+    try {
+      [agoraState.localAudioTrack, agoraState.localVideoTrack] =
+        await AgoraRTC.createMicrophoneAndCameraTracks(
+          { AEC: true, ANS: true, AGC: true },
+          { encoderConfig: 'standard' }
+        );
+      liveState.camEnabled = true;
+      liveState.micEnabled = true;
+    } catch(e) {
+      try {
+        agoraState.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({ AEC: true, ANS: true });
+        liveState.camEnabled = false;
+        showNotif('Caméra inaccessible — connexion en audio uniquement.', '');
+      } catch(e2) {
+        liveState.camEnabled = false;
+        liveState.micEnabled = false;
+        showNotif('Micro et caméra inaccessibles. Autorisez l\'accès dans les paramètres du navigateur puis rechargez.', 'error');
+      }
+    }
+
+    // Afficher la vidéo locale dans le PiP
+    const pip = document.getElementById('live-local-pip');
+    const oldLocalVid = document.getElementById('live-local-video');
+    if (agoraState.localVideoTrack && pip) {
+      if (oldLocalVid) oldLocalVid.style.display = 'none';
+      pip.style.display = 'block';
+      agoraState.localVideoTrack.play(pip);
+    } else if (pip) {
+      pip.style.display = agoraState.localAudioTrack ? 'block' : 'none';
+    }
+
+    // Publier les pistes locales
+    const tracksToPublish = [
+      agoraState.localAudioTrack,
+      agoraState.localVideoTrack,
+    ].filter(Boolean);
+    if (tracksToPublish.length) await agoraState.client.publish(tracksToPublish);
+
+    // Construire un MediaStream local pour MediaRecorder
+    const msTrackList = tracksToPublish.map(t => t.getMediaStreamTrack()).filter(Boolean);
+    if (msTrackList.length) liveState.localStream = new MediaStream(msTrackList);
+
+    // ── Événements Agora ──
+
+    agoraState.client.on('user-published', async (user, mediaType) => {
+      await agoraState.client.subscribe(user, mediaType);
+
+      if (role === 'student' && user.uid === 1) {
+        // Formateur publie
+        if (mediaType === 'video') {
+          const wrapper = document.getElementById('live-main-video-wrapper');
+          const oldVid = document.getElementById('live-main-video');
+          if (oldVid) oldVid.style.display = 'none';
+          if (wrapper) user.videoTrack.play(wrapper);
+          const noVid = document.getElementById('live-no-video-msg');
+          if (noVid) noVid.style.display = 'none';
+        }
+        if (mediaType === 'audio') user.audioTrack.play();
+
+      } else if (role === 'trainer' && user.uid !== 1) {
+        // Un étudiant publie
+        if (mediaType === 'video') {
+          addStudentVideoTileAgora(user.uid);
+          user.videoTrack.play('live-agora-vid-' + user.uid);
+        }
+        if (mediaType === 'audio') user.audioTrack.play();
+      }
+    });
+
+    agoraState.client.on('user-unpublished', (user, mediaType) => {
+      if (role === 'trainer' && mediaType === 'video') {
+        removeStudentAgoraTile(user.uid);
+      }
+    });
+
+    agoraState.client.on('user-left', (user) => {
+      if (role === 'student' && user.uid === 1) {
+        // Le formateur a quitté → fin de session
+        handleSessionEnded();
+      } else if (role === 'trainer') {
+        removeStudentAgoraTile(user.uid);
+      }
+      updateParticipantsCountDisplay();
+    });
+
+    agoraState.client.on('user-joined', () => updateParticipantsCountDisplay());
+
+  } catch(e) {
+    console.error('[Agora] Erreur initialisation:', e);
+    showNotif('Erreur de connexion au cours en direct (' + (e.message || e.code || e) + ').', 'error');
+  }
+}
+
+// ══════════════════════════════════════════
+//  PEERJS — DataConnections uniquement (whiteboard, documents, chat)
 // ══════════════════════════════════════════
 async function initPeer(sessionId, role) {
   return new Promise((resolve) => {
     try {
-      // Le formateur prend comme peerId le sessionId
-      // Les étudiants obtiennent un ID aléatoire
-      const myPeerId = role === 'trainer' ? sessionId : undefined;
+      // Préfixe 'wb-' pour éviter les conflits de PeerID avec l'ancien système
+      const myPeerId = role === 'trainer' ? 'wb-' + sessionId : undefined;
 
-      const peer = new Peer(myPeerId, {
-        debug: 0,
-        config: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' },
-            { urls: 'stun:stun4.l.google.com:19302' },
-            { urls: 'stun:openrelay.metered.ca:80' },
-            { urls: 'turn:openrelay.metered.ca:80',    username: 'openrelayproject', credential: 'openrelayproject' },
-            { urls: 'turn:openrelay.metered.ca:443',   username: 'openrelayproject', credential: 'openrelayproject' },
-            { urls: 'turns:openrelay.metered.ca:443',  username: 'openrelayproject', credential: 'openrelayproject' },
-            { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-          ]
-        }
-      });
-
+      const peer = new Peer(myPeerId, { debug: 0 });
       liveState.peer = peer;
 
       peer.on('open', (id) => {
-        console.log('[Live] Peer ouvert, ID:', id);
-
-        if (role === 'student') {
-          // Appeler le formateur
-          callTrainer(sessionId);
-        }
+        console.log('[Live] PeerJS data ouvert, ID:', id);
+        if (role === 'student') connectDataToTrainer(sessionId);
         resolve();
-      });
-
-      peer.on('call', (call) => {
-        // Le formateur répond aux appels entrants des étudiants
-        if (role === 'trainer') {
-          // Si partage d'écran actif : flux composite écran + micro
-          let answerStream;
-          if (liveState.screenSharing && liveState.screenStream) {
-            answerStream = new MediaStream();
-            const sv = liveState.screenStream.getVideoTracks()[0];
-            const ma = liveState.localStream?.getAudioTracks()[0];
-            if (sv) answerStream.addTrack(sv);
-            if (ma) answerStream.addTrack(ma);
-          } else {
-            answerStream = liveState.localStream || new MediaStream();
-          }
-          call.answer(answerStream);
-          handleIncomingCall(call);
-        }
       });
 
       peer.on('connection', (conn) => {
         conn.on('open', () => {
-          // Envoyer la page courante du document au nouvel étudiant
+          // Envoyer l'état courant au nouvel étudiant
+          if (wbState.active || wbState.strokes.length) {
+            try { conn.send({ type: 'wb-toggle', active: true }); } catch(e) {}
+          }
+          if (wbState.strokes.length) {
+            try { conn.send({ type: 'wb-init', strokes: wbState.strokes }); } catch(e) {}
+          }
           if (liveState.docPages.length && liveState.docPages[liveState.docCurrentPage]) {
             try {
               conn.send({
-                type: 'doc-page-data',
+                type:     'doc-page-data',
                 pageData: liveState.docPages[liveState.docCurrentPage],
                 pageNum:  liveState.docCurrentPage,
                 total:    liveState.docPages.length,
                 name:     liveState.docName,
               });
             } catch(e) {}
-          }
-          // Envoyer l'état du tableau blanc (actif ou non + traits existants)
-          if (wbState.active || wbState.strokes.length) {
-            try { conn.send({ type: 'wb-toggle', active: true }); } catch(e) {}
-          }
-          if (wbState.strokes.length) {
-            try { conn.send({ type: 'wb-init', strokes: wbState.strokes }); } catch(e) {}
           }
         });
         conn.on('data', (data) => handlePeerData(data, conn.peer));
@@ -410,166 +470,67 @@ async function initPeer(sessionId, role) {
 
       peer.on('error', (err) => {
         console.warn('[Live] PeerJS error:', err.type, err.message || '');
-
-        if (err.type === 'peer-unavailable') {
-          // Le formateur n'est pas encore connecté : nettoyer l'appel raté et réessayer
-          if (role === 'student' && liveState.sessionId) {
-            const stale = liveState.calls[liveState.sessionId];
-            if (stale) { try { stale.close(); } catch(e) {} delete liveState.calls[liveState.sessionId]; }
-            setTimeout(() => callTrainer(liveState.sessionId), 3000);
-          }
-          return; // ne pas resolve() ici — garder le peer actif pour les retries
+        if (err.type === 'peer-unavailable' && role === 'student') {
+          setTimeout(() => connectDataToTrainer(sessionId), 3000);
+          return;
         }
-
         if (err.type === 'unavailable-id') {
           showNotif('Session déjà ouverte dans un autre onglet.', 'error');
         }
         resolve();
       });
 
-      // Timeout de 8 secondes si pas de réponse
       setTimeout(resolve, 8000);
-
     } catch(e) {
       console.warn('[Live] PeerJS non disponible:', e);
-      showNotif('ℹ️ Mode hors-ligne activé (WebRTC non disponible).', '');
       resolve();
     }
   });
 }
 
-function callTrainer(sessionId, attempt) {
+function connectDataToTrainer(sessionId, attempt) {
   if (attempt === undefined) attempt = 0;
   if (!liveState.peer || liveState.peer.destroyed) return;
+  const trainerDataId = 'wb-' + sessionId;
+  if (liveState.connections[trainerDataId]) return;
+  if (attempt > 10) return;
 
-  // Ne rappeler que si aucun appel ouvert n'existe (call.open = true quand connecté)
-  const existingCall = liveState.calls[sessionId];
-  if (existingCall && existingCall.open) return;
-
-  // Nettoyer un éventuel appel échoué/fermé
-  if (existingCall) {
-    try { existingCall.close(); } catch(e) {}
-    delete liveState.calls[sessionId];
-  }
-
-  if (attempt > 10) {
-    showNotif('Impossible de joindre le formateur. Vérifiez votre connexion réseau.', 'error');
+  const conn = liveState.peer.connect(trainerDataId, { reliable: true });
+  if (!conn) {
+    setTimeout(() => connectDataToTrainer(sessionId, attempt + 1), 2000);
     return;
   }
-
-  try {
-    const stream = liveState.localStream || new MediaStream();
-    const call = liveState.peer.call(sessionId, stream);
-    if (!call) {
-      setTimeout(() => callTrainer(sessionId, attempt + 1), 2000 + attempt * 500);
-      return;
-    }
-    handleOutgoingCall(call, sessionId);
-    liveState.calls[sessionId] = call;
-
-    // Connexion données pour le chat, whiteboard et documents
-    if (!liveState.connections[sessionId]) {
-      const conn = liveState.peer.connect(sessionId, { reliable: true });
-      if (conn) {
-        conn.on('open', () => {
-          liveState.connections[sessionId] = conn;
-          // Demander au formateur l'état actuel (whiteboard, document en cours)
-          try { conn.send({ type: 'sync-request' }); } catch(e) {}
-        });
-        conn.on('data', (data) => handlePeerData(data, sessionId));
-        conn.on('error', (e) => console.warn('[Live] DataConn error:', e));
-      }
-    }
-  } catch(e) {
-    console.warn('[Live] Erreur appel formateur (tentative ' + attempt + '):', e);
-    setTimeout(() => callTrainer(sessionId, attempt + 1), 2000 + attempt * 500);
-  }
-}
-
-function handleOutgoingCall(call, sessionId) {
-  call.on('stream', (remoteStream) => {
-    const mainVid = document.getElementById('live-main-video');
-    if (mainVid) {
-      mainVid.srcObject = remoteStream;
-      mainVid.muted = false;
-      const playPromise = mainVid.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => {
-          // Autoplay bloqué — afficher un bouton pour activer le son
-          const noVid = document.getElementById('live-no-video-msg');
-          if (noVid) {
-            noVid.textContent = 'Cliquer ici pour activer le son';
-            noVid.style.display = 'flex';
-            noVid.style.cursor = 'pointer';
-            noVid.onclick = () => {
-              mainVid.play().catch(()=>{});
-              noVid.style.display = 'none';
-              noVid.onclick = null;
-            };
-          }
-        });
-      }
-    }
-    const noVid = document.getElementById('live-no-video-msg');
-    if (noVid && !noVid.onclick) noVid.style.display = 'none';
+  conn.on('open', () => {
+    liveState.connections[trainerDataId] = conn;
+    try { conn.send({ type: 'sync-request' }); } catch(e) {}
   });
-  call.on('close', () => {
-    // Nettoyer l'appel fermé et réessayer si la session est toujours active
-    if (liveState.calls[sessionId] === call) delete liveState.calls[sessionId];
-    if (liveState.sessionId && sessionId) {
-      setTimeout(() => callTrainer(sessionId), 3000);
-    }
-  });
-  call.on('error', (e) => {
-    console.warn('[Live] Appel formateur erreur:', e);
-    if (liveState.calls[sessionId] === call) delete liveState.calls[sessionId];
-    if (liveState.sessionId && sessionId) {
-      setTimeout(() => callTrainer(sessionId), 3000);
-    }
+  conn.on('data', (data) => handlePeerData(data, trainerDataId));
+  conn.on('error', () => {
+    delete liveState.connections[trainerDataId];
+    setTimeout(() => connectDataToTrainer(sessionId, attempt + 1), 3000);
   });
 }
 
-function handleIncomingCall(call) {
-  const peerId = call.peer;
-  call.on('stream', (remoteStream) => {
-    addStudentVideoTile(peerId, remoteStream);
-  });
-  call.on('close', () => removeStudentVideoTile(peerId));
-  call.on('error', (e) => {
-    console.warn('[Live] Incoming call error:', e);
-    removeStudentVideoTile(peerId);
-  });
-  liveState.calls[peerId] = call;
+function addStudentVideoTileAgora(uid) {
+  const strip = document.getElementById('live-student-strip');
+  if (!strip) return;
+  const tileId = 'live-agora-tile-' + uid;
+  if (document.getElementById(tileId)) return;
+  const tile = document.createElement('div');
+  tile.className = 'live-student-tile';
+  tile.id = tileId;
+  tile.innerHTML =
+    '<div style="width:100%;height:100%;background:#060b14;" id="live-agora-vid-' + uid + '"></div>' +
+    '<div class="live-student-tile-online"></div>' +
+    '<div class="live-student-tile-label">Étudiant</div>';
+  strip.appendChild(tile);
   updateParticipantsCountDisplay();
 }
 
-function addStudentVideoTile(peerId, stream) {
-  const strip = document.getElementById('live-student-strip');
-  if (!strip) return;
-
-  let tile = document.getElementById('live-tile-' + peerId);
-  if (!tile) {
-    tile = document.createElement('div');
-    tile.className = 'live-student-tile';
-    tile.id = 'live-tile-' + peerId;
-    tile.innerHTML = `
-      <video autoplay playsinline></video>
-      <div class="live-student-tile-online"></div>
-      <div class="live-student-tile-label">Étudiant</div>
-    `;
-    strip.appendChild(tile);
-  }
-
-  const vid = tile.querySelector('video');
-  if (vid) {
-    vid.srcObject = stream;
-    vid.muted = false;
-    vid.play().catch(() => {
-      // Retry après interaction utilisateur
-      const onClick = () => { vid.play().catch(()=>{}); document.removeEventListener('click', onClick); };
-      document.addEventListener('click', onClick);
-    });
-  }
+function removeStudentAgoraTile(uid) {
+  const tile = document.getElementById('live-agora-tile-' + uid);
+  if (tile) tile.remove();
+  updateParticipantsCountDisplay();
 }
 
 function removeStudentVideoTile(peerId) {
@@ -659,21 +620,6 @@ function handlePeerData(data, fromPeerId) {
     } else {
       canvas.classList.remove('active', 'view-only');
     }
-  } else if (data.type === 'reconnect') {
-    // Le formateur demande une reconnexion (partage d'écran activé/arrêté)
-    const sessId = liveState.sessionId;
-    if (!sessId || !liveState.peer || liveState.peer.destroyed) return;
-    if (liveState.role !== 'student') return;
-    // Fermer l'appel vidéo existant et forcer nettoyage
-    const oldCall = liveState.calls[sessId];
-    if (oldCall) { try { oldCall.close(); } catch(e) {} }
-    delete liveState.calls[sessId];
-    // Fermer la connexion données existante
-    const oldConn = liveState.connections[sessId];
-    if (oldConn) { try { oldConn.close(); } catch(e) {} }
-    delete liveState.connections[sessId];
-    // Se reconnecter après un court délai pour laisser le formateur prêt
-    setTimeout(() => callTrainer(sessId), 1500);
   }
 }
 
@@ -681,6 +627,12 @@ function handlePeerData(data, fromPeerId) {
 //  ENREGISTREMENT — MediaRecorder
 // ══════════════════════════════════════════
 function startLiveRecording() {
+  // Reconstruire le MediaStream depuis les pistes Agora si nécessaire
+  if (!liveState.localStream) {
+    const tracks = [agoraState.localAudioTrack, agoraState.localVideoTrack]
+      .filter(Boolean).map(t => t.getMediaStreamTrack()).filter(Boolean);
+    if (tracks.length) liveState.localStream = new MediaStream(tracks);
+  }
   if (!liveState.localStream || liveState.recording) return;
   try {
     const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
@@ -759,22 +711,16 @@ async function onRecordingStopped() {
 //  CONTRÔLES MÉDIA
 // ══════════════════════════════════════════
 function liveToggleCamera() {
-  if (!liveState.localStream) return;
-  const videoTracks = liveState.localStream.getVideoTracks();
-  if (!videoTracks.length) return;
+  if (!agoraState.localVideoTrack) return;
   liveState.camEnabled = !liveState.camEnabled;
-  videoTracks.forEach(t => t.enabled = liveState.camEnabled);
-  const localVid = document.getElementById('live-local-video');
-  if (localVid) localVid.style.visibility = liveState.camEnabled ? 'visible' : 'hidden';
+  agoraState.localVideoTrack.setEnabled(liveState.camEnabled);
   updateLiveControls();
 }
 
 function liveToggleMic() {
-  if (!liveState.localStream) return;
-  const audioTracks = liveState.localStream.getAudioTracks();
-  if (!audioTracks.length) return;
+  if (!agoraState.localAudioTrack) return;
   liveState.micEnabled = !liveState.micEnabled;
-  audioTracks.forEach(t => t.enabled = liveState.micEnabled);
+  agoraState.localAudioTrack.setEnabled(liveState.micEnabled);
   updateLiveControls();
 }
 
@@ -787,90 +733,56 @@ async function liveToggleScreenShare() {
 }
 
 async function liveStartScreenShare() {
+  if (!agoraState.client) return;
   try {
-    liveState.screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+    // Créer la piste de partage d'écran via Agora
+    agoraState.screenTrack = await AgoraRTC.createScreenVideoTrack(
+      { encoderConfig: '1080p_1', optimizationMode: 'detail' },
+      'disable' // pas d'audio système (on garde le micro)
+    );
     liveState.screenSharing = true;
 
-    // Flux composite : vidéo écran + audio micro
-    const screenVideo = liveState.screenStream.getVideoTracks()[0];
-    const micAudio    = liveState.localStream?.getAudioTracks()[0];
-    const composite   = new MediaStream();
-    if (screenVideo) composite.addTrack(screenVideo);
-    if (micAudio)    composite.addTrack(micAudio);
-
-    // Afficher localement sur le formateur
-    const mainVid = document.getElementById('live-main-video');
-    if (mainVid) { mainVid.srcObject = composite; mainVid.play().catch(()=>{}); }
-
-    // Tentative replaceTrack sur les appels existants
-    let replacedCount = 0;
-    Object.values(liveState.calls).forEach(call => {
-      try {
-        const pc = call.peerConnection;
-        if (!pc) return;
-        const vSender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-        if (vSender && screenVideo) { vSender.replaceTrack(screenVideo); replacedCount++; }
-        // Remplacer aussi l'audio si nécessaire
-        const aSender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
-        if (aSender && micAudio) aSender.replaceTrack(micAudio);
-      } catch(e) { console.warn('[Live] replaceTrack écran:', e); }
-    });
-
-    // Si replaceTrack a échoué pour certains, ou aucun étudiant connecté :
-    // demander à tous les étudiants de se reconnecter
-    if (replacedCount < Object.keys(liveState.calls).length || !replacedCount) {
-      Object.values(liveState.connections).forEach(conn => {
-        try { conn.send({ type: 'reconnect' }); } catch(e) {}
-      });
+    // Dépublier la caméra, publier l'écran
+    if (agoraState.localVideoTrack) {
+      await agoraState.client.unpublish(agoraState.localVideoTrack);
     }
+    await agoraState.client.publish(agoraState.screenTrack);
 
-    if (screenVideo) screenVideo.onended = liveStopScreenShare;
+    // Afficher l'écran localement dans la zone principale du formateur
+    const wrapper = document.getElementById('live-main-video-wrapper');
+    const oldVid  = document.getElementById('live-main-video');
+    if (oldVid) oldVid.style.display = 'none';
+    if (wrapper) agoraState.screenTrack.play(wrapper);
+
+    // Écouter la fin de partage (bouton stop du navigateur)
+    agoraState.screenTrack.on('track-ended', liveStopScreenShare);
+
     updateLiveControls();
     showNotif('Partage d\'écran activé.', '');
   } catch(e) {
     liveState.screenSharing = false;
-    liveState.screenStream = null;
-    if (e.name !== 'NotAllowedError') {
+    if (e.code !== 'PERMISSION_DENIED' && e.name !== 'NotAllowedError') {
       showNotif('Impossible de partager l\'écran.', 'error');
     }
   }
 }
 
 async function liveStopScreenShare() {
-  if (!liveState.screenStream) return;
-  liveState.screenStream.getTracks().forEach(t => t.stop());
-  liveState.screenStream = null;
-  liveState.screenSharing = false;
+  if (!agoraState.screenTrack) return;
+  try {
+    await agoraState.client.unpublish(agoraState.screenTrack);
+    agoraState.screenTrack.stop();
+    agoraState.screenTrack.close();
+    agoraState.screenTrack = null;
+    liveState.screenSharing = false;
 
-  // Afficher la caméra locale du formateur
-  const mainVid = document.getElementById('live-main-video');
-  if (mainVid && liveState.localStream) {
-    mainVid.srcObject = liveState.localStream;
-    mainVid.play().catch(()=>{});
-  }
-
-  // Tentative replaceTrack : revenir à la caméra
-  const camTrack = liveState.localStream?.getVideoTracks()[0];
-  const micTrack = liveState.localStream?.getAudioTracks()[0];
-  let replacedCount = 0;
-  Object.values(liveState.calls).forEach(call => {
-    try {
-      const pc = call.peerConnection;
-      if (!pc) return;
-      const vSender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-      if (vSender && camTrack) { vSender.replaceTrack(camTrack); replacedCount++; }
-      const aSender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
-      if (aSender && micTrack) aSender.replaceTrack(micTrack);
-    } catch(e) { console.warn('[Live] replaceTrack caméra:', e); }
-  });
-
-  // Si replaceTrack a échoué : demander reconnexion
-  if (replacedCount < Object.keys(liveState.calls).length || !replacedCount) {
-    Object.values(liveState.connections).forEach(conn => {
-      try { conn.send({ type: 'reconnect' }); } catch(e) {}
-    });
-  }
-
+    // Republier la caméra
+    if (agoraState.localVideoTrack) {
+      await agoraState.client.publish(agoraState.localVideoTrack);
+      const pip = document.getElementById('live-local-pip');
+      if (pip) agoraState.localVideoTrack.play(pip);
+    }
+  } catch(e) { console.warn('[Live] Stop screen share:', e); }
   updateLiveControls();
   showNotif('Partage d\'écran arrêté.', '');
 }
@@ -964,12 +876,18 @@ function markLivePresenceInPointage(sessionId) {
 }
 
 function cleanupLive() {
-  // Arrêter les streams
-  if (liveState.localStream)  { liveState.localStream.getTracks().forEach(t => t.stop()); liveState.localStream = null; }
-  if (liveState.screenStream) { liveState.screenStream.getTracks().forEach(t => t.stop()); liveState.screenStream = null; }
+  // Libérer les ressources Agora
+  if (agoraState.localAudioTrack) { try { agoraState.localAudioTrack.stop(); agoraState.localAudioTrack.close(); } catch(e){} agoraState.localAudioTrack = null; }
+  if (agoraState.localVideoTrack) { try { agoraState.localVideoTrack.stop(); agoraState.localVideoTrack.close(); } catch(e){} agoraState.localVideoTrack = null; }
+  if (agoraState.screenTrack)     { try { agoraState.screenTrack.stop();     agoraState.screenTrack.close();     } catch(e){} agoraState.screenTrack = null; }
+  if (agoraState.client)          { try { agoraState.client.leave(); }        catch(e){} agoraState.client = null; }
+  agoraState.uid = null;
 
-  // Fermer les appels PeerJS
-  Object.values(liveState.calls).forEach(call => { try { call.close(); } catch(e) {} });
+  // Arrêter le stream local (MediaRecorder)
+  if (liveState.localStream)  { liveState.localStream.getTracks().forEach(t => t.stop()); liveState.localStream = null; }
+  liveState.screenStream = null;
+
+  // Fermer les DataConnections PeerJS
   liveState.calls = {};
   Object.values(liveState.connections).forEach(conn => { try { conn.close(); } catch(e) {} });
   liveState.connections = {};
@@ -1240,14 +1158,14 @@ function startLiveTimers(sessionId, role) {
       }
     }, 30 * 1000);
 
-    // Reconnect WebRTC si l'appel vers le formateur est absent ou fermé (call.open = false)
+    // Reconnect DataConnection si absente (whiteboard/documents/chat)
     liveState.webrtcReconnectTimer = setInterval(() => {
       if (!liveState.sessionId || !liveState.peer || liveState.peer.destroyed) return;
-      const existingCall = liveState.calls[liveState.sessionId];
-      if (!existingCall || !existingCall.open) {
-        callTrainer(liveState.sessionId);
+      const trainerDataId = 'wb-' + liveState.sessionId;
+      if (!liveState.connections[trainerDataId]) {
+        connectDataToTrainer(liveState.sessionId);
       }
-    }, 15 * 1000);
+    }, 20 * 1000);
   }
 }
 
@@ -1418,8 +1336,14 @@ function updateLiveTopbarInfo() {
 }
 
 function updateParticipantsCountDisplay() {
-  const session = getLiveSessionById(liveState.sessionId);
-  const n = session ? Object.keys(session.attendees || {}).length : 0;
+  // Compter via Agora (utilisateurs dans le canal) + fallback JSONBin
+  let n = 0;
+  if (agoraState.client && agoraState.client.remoteUsers) {
+    n = agoraState.client.remoteUsers.length;
+  } else {
+    const session = getLiveSessionById(liveState.sessionId);
+    n = session ? Object.keys(session.attendees || {}).length : 0;
+  }
   const el = document.getElementById('live-participants-count-num');
   if (el) el.textContent = n;
 }
