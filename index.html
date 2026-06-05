@@ -7343,7 +7343,6 @@ function studentLogin() {
     // Déjà choisi "Oui" → session persistante, accès direct
     saveSession(true);
     enterStudentApp();
-    showNotif('Bienvenue ' + name + ' !', 'success');
   } else {
     // Demander le choix (première fois ou après un "Non")
     saveSession(false); // Session temporaire en attendant le choix
@@ -7855,7 +7854,6 @@ function verifyAdminOTP() {
   adminOTPBack();
   document.getElementById('admin-email-input').value = '';
   enterAdminApp();
-  showNotif('✅ Connexion administrateur réussie', 'success');
 }
 
 // ══ TRAINER — Login OTP ══
@@ -8738,14 +8736,12 @@ function adminLogin() {
   history.replaceState(null, '', location.pathname);
   document.getElementById('admin-password').value = '';
   enterAdminApp();
-  showNotif('✅ Connexion administrateur', 'success');
 }
 
 function adminLogout() {
   clearSession();
   document.getElementById('admin-app').classList.remove('active');
   showLoginScreen();
-  showNotif('Déconnexion admin', '');
 }
 
 // ══════════════════════════════════════════
@@ -8778,7 +8774,6 @@ function trainerLogout() {
   clearSession();
   document.getElementById('trainer-app').classList.remove('active');
   showLoginScreen();
-  showNotif('Déconnexion formateur', '');
 }
 
 function enterTrainerApp() {
