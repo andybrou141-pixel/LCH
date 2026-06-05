@@ -77,7 +77,6 @@ async function deleteLiveRecordingBlob(blobKey) {
 }
 
 // ══════════════════════════════════════════
-//  CHAT — stockage localStorage séparé
 //  CHAT — stockage dans appData (synchronisé JSONBin)
 // ══════════════════════════════════════════
 
@@ -98,7 +97,6 @@ function liveCleanupChat(sessionId) {
   try {
     if (appData.liveChats) delete appData.liveChats[sessionId];
   } catch(e) {}
-}
 }
 
 // ══════════════════════════════════════════
