@@ -1,4 +1,5 @@
 ﻿/* ══════════════════════════════════════════════════════════════
+  if (liveState.jsonbinSyncTimer) { clearInterval(liveState.jsonbinSyncTimer); liveState.jsonbinSyncTimer = null; }
    HERMES KNOWLEDGE — MODULE COURS EN DIRECT
    WebRTC (PeerJS) · MediaRecorder · Chat · Présence automatique
    ══════════════════════════════════════════════════════════════ */
@@ -288,12 +289,9 @@ async function openLiveRoom(sessionId, role) {
 }
 
 function getLiveSessionById(id) {
-  try {
-    const raw = localStorage.getItem('hermes_knowledge_data');
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    return (data.liveSessions || []).find(s => s.id === id) || null;
-  } catch(e) { return null; }
+  try { return (appData.liveSessions || []).find(s => s.id === id) || null; }
+  catch(e) { return null; }
+}
 }
 
 // ══════════════════════════════════════════
@@ -740,6 +738,7 @@ function cleanupLive() {
   clearInterval(liveState.presencePollTimer);
   clearInterval(liveState.sessionTimerInterval);
   liveState.chatPollTimer = null;
+  if (liveState.jsonbinSyncTimer) { clearInterval(liveState.jsonbinSyncTimer); liveState.jsonbinSyncTimer = null; }
   liveState.presencePollTimer = null;
   liveState.sessionTimerInterval = null;
 
@@ -849,17 +848,14 @@ function refreshLiveOnlinePulse(sessionId, userName, promotionId) {
 
 function updateStudentAttendee(sessionId, userId, data) {
   try {
-    const raw = localStorage.getItem('hermes_knowledge_data');
-    if (!raw) return;
-    const appDataCopy = JSON.parse(raw);
-    if (!appDataCopy.liveSessions) return;
-    const session = appDataCopy.liveSessions.find(s => s.id === sessionId);
+    if (!appData.liveSessions) return;
+    const session = appData.liveSessions.find(s => s.id === sessionId);
     if (!session) return;
     if (!session.attendees) session.attendees = {};
     session.attendees[userId] = Object.assign(session.attendees[userId] || {}, data);
-    localStorage.setItem('hermes_knowledge_data', JSON.stringify(appDataCopy));
-    // Synchroniser appData local
-    appData.liveSessions = appDataCopy.liveSessions;
+    // Sauvegarder localement et sur JSONBin
+    try { localStorage.setItem("hermes_knowledge_data", JSON.stringify(appData)); } catch(e) {}
+    if (typeof _saveToJsonBin === "function") _saveToJsonBin();
   } catch(e) {}
 }
 
@@ -928,6 +924,13 @@ function startLiveTimers(sessionId, role) {
     }
   }, LIVE_POLL_MS);
 
+  // Timer JSONBin : rafraîchir les participants toutes les 5 secondes pendant le live
+  liveState.jsonbinSyncTimer = setInterval(async () => {
+    await _refreshLiveFromJsonBin();
+    renderLiveParticipants();
+    updateParticipantsCountDisplay();
+  }, 5000);
+
   // Pour les étudiants : rafraîchir le pulse hermes_online_ toutes les 45 secondes
   // (nécessaire pour que la vue Présence du formateur reste à jour)
   if (role === 'student') {
@@ -955,16 +958,7 @@ function pollLiveChat() {
 }
 
 function syncSessionFromStorage(sessionId) {
-  try {
-    const raw = localStorage.getItem('hermes_knowledge_data');
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    const session = (data.liveSessions||[]).find(s=>s.id===sessionId);
-    if (session && appData.liveSessions) {
-      const idx = appData.liveSessions.findIndex(s=>s.id===sessionId);
-      if (idx !== -1) appData.liveSessions[idx] = session;
-    }
-  } catch(e) {}
+  // Données gérées via JSONBin - appData est mis à jour par _refreshLiveFromJsonBin()
 }
 
 // ══════════════════════════════════════════
