@@ -1,5 +1,4 @@
 ﻿/* ══════════════════════════════════════════════════════════════
-  if (liveState.jsonbinSyncTimer) { clearInterval(liveState.jsonbinSyncTimer); liveState.jsonbinSyncTimer = null; }
    HERMES KNOWLEDGE — MODULE COURS EN DIRECT
    WebRTC (PeerJS) · MediaRecorder · Chat · Présence automatique
    ══════════════════════════════════════════════════════════════ */
@@ -79,22 +78,27 @@ async function deleteLiveRecordingBlob(blobKey) {
 
 // ══════════════════════════════════════════
 //  CHAT — stockage localStorage séparé
+//  CHAT — stockage dans appData (synchronisé JSONBin)
 // ══════════════════════════════════════════
-function liveGetChatKey(sessionId) { return 'hermes_live_chat_' + sessionId; }
 
 function liveGetChat(sessionId) {
-  try { return JSON.parse(localStorage.getItem(liveGetChatKey(sessionId))) || []; }
+  try { return (appData.liveChats && appData.liveChats[sessionId]) || []; }
   catch(e) { return []; }
 }
 
 function liveSaveChat(sessionId, messages) {
-  try { localStorage.setItem(liveGetChatKey(sessionId), JSON.stringify(messages)); }
-  catch(e) {}
+  try {
+    if (!appData.liveChats) appData.liveChats = {};
+    appData.liveChats[sessionId] = messages;
+    if (typeof _saveToJsonBin === "function") _saveToJsonBin();
+  } catch(e) {}
 }
 
 function liveCleanupChat(sessionId) {
-  try { localStorage.removeItem(liveGetChatKey(sessionId)); }
-  catch(e) {}
+  try {
+    if (appData.liveChats) delete appData.liveChats[sessionId];
+  } catch(e) {}
+}
 }
 
 // ══════════════════════════════════════════
@@ -291,7 +295,6 @@ async function openLiveRoom(sessionId, role) {
 function getLiveSessionById(id) {
   try { return (appData.liveSessions || []).find(s => s.id === id) || null; }
   catch(e) { return null; }
-}
 }
 
 // ══════════════════════════════════════════
@@ -661,64 +664,35 @@ function handleSessionEnded() {
 function markLivePresenceInPointage(sessionId) {
   try {
     const userId  = auth.userId;
-    const raw     = localStorage.getItem('hermes_knowledge_data');
-    if (!raw) return;
-    const d       = JSON.parse(raw);
-
-    // Trouver l'utilisateur
-    const userIdx = (d.users || []).findIndex(u => u.id === userId);
+    const userIdx = (appData.users || []).findIndex(u => u.id === userId);
     if (userIdx === -1) return;
-    const user = d.users[userIdx];
-
-    // Trouver la session live
-    const session = (d.liveSessions || []).find(s => s.id === sessionId);
+    const user    = appData.users[userIdx];
+    const session = (appData.liveSessions || []).find(s => s.id === sessionId);
     if (!session) return;
-
-    // Construire la clé de date du jour
     const today   = new Date();
-    const dateKey = today.getFullYear() + '-' +
-      String(today.getMonth() + 1).padStart(2, '0') + '-' +
-      String(today.getDate()).padStart(2, '0');
-
-    if (!user.attendance)              user.attendance = {};
-    if (!user.attendance[dateKey])     user.attendance[dateKey] = { sessions: [], activities: [], totalTime: 0, courseAttendance: [] };
-
+    const dateKey = today.getFullYear() + "-" +
+      String(today.getMonth() + 1).padStart(2, "0") + "-" +
+      String(today.getDate()).padStart(2, "0");
+    if (!user.attendance)          user.attendance = {};
+    if (!user.attendance[dateKey]) user.attendance[dateKey] = { sessions:[], activities:[], totalTime:0, courseAttendance:[] };
     const att = user.attendance[dateKey];
     if (!att.courseAttendance) att.courseAttendance = [];
-
-    // Éviter les doublons
     if (!att.courseAttendance.find(ca => ca.sessionId === sessionId)) {
       att.courseAttendance.push({
         sessionId:   sessionId,
         trainerId:   session.trainerId,
-        trainerName: session.trainerName || 'Formateur',
-        label:       session.courseName  || 'Cours en direct',
-        type:        'live',
-        status:      'present',
-        markedAt:    Date.now(),
+        trainerName: session.trainerName || "Formateur",
+        label:       session.courseName  || "Cours en direct",
+        type:        "live", status: "present", markedAt: Date.now(),
       });
     }
-
-    // Ajouter au temps total (10 min minimum = seuil de validation)
     att.totalTime = (att.totalTime || 0) + LIVE_PRESENCE_THRESHOLD_MS;
-
-    // Ajouter aux activités
     if (!att.activities) att.activities = [];
-    if (!att.activities.includes('live')) att.activities.push('live');
-
-    // Sauvegarder
-    d.users[userIdx] = user;
-    localStorage.setItem('hermes_knowledge_data', JSON.stringify(d));
-
-    // Synchroniser appData en mémoire
-    if (appData.users && appData.users[userIdx]) {
-      appData.users[userIdx] = user;
-    }
-
-    console.log('[Live] Pointage enregistré pour', user.name, 'le', dateKey);
-  } catch(e) {
-    console.warn('[Live] Erreur markLivePresenceInPointage:', e);
-  }
+    if (!att.activities.includes("live")) att.activities.push("live");
+    appData.users[userIdx] = user;
+    if (typeof _saveToJsonBin === "function") _saveToJsonBin();
+    console.log("[Live] Pointage enregistré pour", user.name, "le", dateKey);
+  } catch(e) { console.warn("[Live] Erreur markLivePresenceInPointage:", e); }
 }
 
 function cleanupLive() {

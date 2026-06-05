@@ -12437,6 +12437,7 @@ function _fixAppDataFields(d) {
   if (!d.liveRecordings)     d.liveRecordings = [];
   if (!d.assessments)        d.assessments = [];
   if (!d.assessmentAttempts) d.assessmentAttempts = [];
+  if (!d.liveChats) d.liveChats = {};
   d.trainers.forEach(t => { if (!t.schedule) t.schedule = []; });
   d.users.forEach(u => { if (!u.attendance) u.attendance = {}; });
   d.tours.sort((a, b) => (a.order || 0) - (b.order || 0));
