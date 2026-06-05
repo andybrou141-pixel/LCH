@@ -380,16 +380,33 @@ async function initAgora(sessionId, role) {
       await agoraState.client.subscribe(user, mediaType);
 
       if (role === 'student' && user.uid === 1) {
-        // Formateur publie
+        // Le formateur publie vidéo ou audio
         if (mediaType === 'video') {
           const wrapper = document.getElementById('live-main-video-wrapper');
-          const oldVid = document.getElementById('live-main-video');
+          const oldVid  = document.getElementById('live-main-video');
+          const noVid   = document.getElementById('live-no-video-msg');
           if (oldVid) oldVid.style.display = 'none';
-          if (wrapper) user.videoTrack.play(wrapper);
-          const noVid = document.getElementById('live-no-video-msg');
-          if (noVid) noVid.style.display = 'none';
+          if (noVid)  noVid.style.display  = 'none';
+          _hideTrainerPlaceholder();
+          if (wrapper) {
+            // Supprimer les anciens containers Agora (switch caméra ↔ écran)
+            Array.from(wrapper.children).forEach(el => {
+              if (el.id !== 'live-main-video' && el.id !== 'live-no-video-msg' &&
+                  el.id !== 'live-trainer-placeholder' && el.id !== 'live-source-label') {
+                try { el.remove(); } catch(e) {}
+              }
+            });
+            user.videoTrack.play(wrapper);
+          }
+          // Indiquer la source (caméra ou écran)
+          const isScreen = user.videoTrack && user.videoTrack._mediaStreamTrack &&
+            user.videoTrack._mediaStreamTrack.label &&
+            user.videoTrack._mediaStreamTrack.label.toLowerCase().includes('screen');
+          _setSourceLabel(isScreen ? '🖥️ Partage d\'écran' : '📹 Caméra du formateur');
         }
-        if (mediaType === 'audio') user.audioTrack.play();
+        if (mediaType === 'audio') {
+          try { user.audioTrack.play(); } catch(e) {}
+        }
 
       } else if (role === 'trainer' && user.uid !== 1) {
         // Un étudiant publie
@@ -397,14 +414,22 @@ async function initAgora(sessionId, role) {
           addStudentVideoTileAgora(user.uid);
           user.videoTrack.play('live-agora-vid-' + user.uid);
         }
-        if (mediaType === 'audio') user.audioTrack.play();
+        if (mediaType === 'audio') {
+          try { user.audioTrack.play(); } catch(e) {}
+        }
       }
     });
 
     agoraState.client.on('user-unpublished', (user, mediaType) => {
+      if (role === 'student' && user.uid === 1 && mediaType === 'video') {
+        // Le formateur a désactivé sa caméra ou arrêté son partage
+        _showTrainerPlaceholder();
+        _setSourceLabel('');
+      }
       if (role === 'trainer' && mediaType === 'video') {
         removeStudentAgoraTile(user.uid);
       }
+      updateParticipantsCountDisplay();
     });
 
     agoraState.client.on('user-left', (user) => {
@@ -511,6 +536,48 @@ function connectDataToTrainer(sessionId, attempt) {
   });
 }
 
+// ── Placeholder formateur désactivé (côté étudiant) ──
+function _showTrainerPlaceholder() {
+  const ph = document.getElementById('live-trainer-placeholder');
+  if (!ph) return;
+  const session = getLiveSessionById(liveState.sessionId);
+  const trainerName = session ? session.trainerName : 'Formateur';
+  ph.innerHTML =
+    '<div class="live-avatar-big">' + initials(trainerName) + '</div>' +
+    '<div class="trainer-ph-name">' + escHtml(trainerName) + '</div>' +
+    '<div class="trainer-ph-status">' +
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34m-7.72-2.06A4 4 0 1 1 7.72 7.72"/></svg>' +
+      'Caméra désactivée' +
+    '</div>';
+  ph.style.display = 'flex';
+  // Nettoyer les anciens containers Agora dans le wrapper
+  const wrapper = document.getElementById('live-main-video-wrapper');
+  if (wrapper) {
+    Array.from(wrapper.children).forEach(el => {
+      if (el.id !== 'live-main-video' && el.id !== 'live-no-video-msg' &&
+          el.id !== 'live-trainer-placeholder' && el.id !== 'live-source-label') {
+        try { el.remove(); } catch(e) {}
+      }
+    });
+  }
+}
+
+function _hideTrainerPlaceholder() {
+  const ph = document.getElementById('live-trainer-placeholder');
+  if (ph) ph.style.display = 'none';
+}
+
+function _setSourceLabel(text) {
+  const lbl = document.getElementById('live-source-label');
+  if (!lbl) return;
+  if (text) {
+    lbl.textContent = text;
+    lbl.classList.add('visible');
+  } else {
+    lbl.classList.remove('visible');
+  }
+}
+
 function addStudentVideoTileAgora(uid) {
   const strip = document.getElementById('live-student-strip');
   if (!strip) return;
@@ -578,6 +645,7 @@ function handlePeerData(data, fromPeerId) {
   } else if (data.type === 'session-end') {
     handleSessionEnded();
   } else if (data.type === 'doc-page-data') {
+    _setSourceLabel('📄 Document partagé');
     _receiveDocPageData(data);
   } else if (data.type === 'doc-page') {
     if (typeof data.pageNum === 'number' && liveState.docPages[data.pageNum]) {
@@ -592,6 +660,7 @@ function handlePeerData(data, fromPeerId) {
     const vw   = document.getElementById('live-main-video-wrapper');
     if (area) area.classList.remove('active');
     if (vw)   vw.style.display = '';
+    _setSourceLabel('📹 Caméra du formateur');
     renderLiveDocsList();
   } else if (data.type === 'wb-seg') {
     // Segment en temps réel : dessiner immédiatement sans attendre la fin du trait
@@ -617,8 +686,10 @@ function handlePeerData(data, fromPeerId) {
     if (data.active) {
       _ensureWbCanvas(canvas);
       _redrawWb();
+      _setSourceLabel('🖊️ Tableau blanc');
     } else {
       canvas.classList.remove('active', 'view-only');
+      _setSourceLabel('📹 Caméra du formateur');
     }
   }
 }
@@ -753,6 +824,7 @@ async function liveStartScreenShare() {
     const oldVid  = document.getElementById('live-main-video');
     if (oldVid) oldVid.style.display = 'none';
     if (wrapper) agoraState.screenTrack.play(wrapper);
+    _setSourceLabel('🖥️ Partage d\'écran');
 
     // Écouter la fin de partage (bouton stop du navigateur)
     agoraState.screenTrack.on('track-ended', liveStopScreenShare);
@@ -781,6 +853,7 @@ async function liveStopScreenShare() {
       await agoraState.client.publish(agoraState.localVideoTrack);
       const pip = document.getElementById('live-local-pip');
       if (pip) agoraState.localVideoTrack.play(pip);
+      _setSourceLabel('📹 Caméra du formateur');
     }
   } catch(e) { console.warn('[Live] Stop screen share:', e); }
   updateLiveControls();
@@ -1386,7 +1459,7 @@ function updateLiveControls() {
     wbBtn.querySelector('.live-ctrl-label').textContent = wbState.active ? 'Tableau ✓' : 'Tableau';
   }
 
-  // Masquer les boutons formateur si étudiant
+  // Masquer les boutons formateur et la bande étudiants si étudiant
   if (liveState.role === 'student') {
     if (screenBtn) screenBtn.style.display = 'none';
     if (recBtn)    recBtn.style.display    = 'none';
@@ -1394,6 +1467,9 @@ function updateLiveControls() {
     if (wbBtn)     wbBtn.style.display     = 'none';
     const fileInput = document.getElementById('live-doc-file-input');
     if (fileInput) fileInput.style.display = 'none';
+    // Cacher la bande des tuiles étudiants (réservée au formateur)
+    const strip = document.getElementById('live-student-strip');
+    if (strip) strip.style.display = 'none';
   }
 }
 
@@ -2148,6 +2224,9 @@ function liveToggleWhiteboard() {
     window.removeEventListener('resize', window._wbResizeListener);
     window._wbResizeListener = null;
   }
+  // Indiquer la source tableau blanc / caméra
+  _setSourceLabel(wbState.active ? '🖊️ Tableau blanc' : (liveState.screenSharing ? '🖥️ Partage d\'écran' : '📹 Caméra du formateur'));
+
   // Diffuser aux étudiants
   Object.values(liveState.connections).forEach(conn => {
     try { conn.send({ type: 'wb-toggle', active: wbState.active }); } catch(e) {}

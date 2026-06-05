@@ -5302,11 +5302,16 @@
 
       <!-- Vidéo principale -->
       <div id="live-main-video-wrapper">
-        <video id="live-main-video" autoplay playsinline style="width:100%;height:100%;object-fit:contain;background:#060b14;display:block;"></video>
+        <video id="live-main-video" autoplay playsinline style="display:none;"></video>
         <div id="live-no-video-msg" class="live-no-video-placeholder">
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-          <p>En attente de connexion…</p>
+          <p>En attente du formateur…</p>
+          <p style="font-size:0.72rem;color:rgba(255,255,255,0.3);">La vidéo apparaîtra dès que le formateur activera sa caméra</p>
         </div>
+        <!-- Placeholder caméra formateur désactivée (créé dynamiquement par JS) -->
+        <div id="live-trainer-placeholder" style="display:none;"></div>
+        <!-- Label indiquant la source (caméra / écran / tableau blanc) -->
+        <div id="live-source-label"></div>
       </div>
 
       <!-- Zone document partagé -->
