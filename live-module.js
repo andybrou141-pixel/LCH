@@ -10,16 +10,13 @@ const LIVE_POLL_MS    = 3000;   // intervalle de polling chat + présence
 const LIVE_PRESENCE_THRESHOLD_MS = 10 * 60 * 1000; // 10 min → marqué présent
 
 // ── Agora App ID ──
-const AGORA_APP_ID = 'e7f2f6d00ea940f9aae0b53afb69005a';
-
-// ── État Agora (audio/vidéo SFU) ──
-const agoraState = {
-  client:          null,  // AgoraRTC client
-  localAudioTrack: null,
-  localVideoTrack: null,
-  screenTrack:     null,
-  uid:             null,  // formateur = 1, étudiants = aléatoire
+// ── État Jitsi Meet (audio/vidéo — gratuit, sans serveur) ──
+const jitsiState = {
+  api: null,   // JitsiMeetExternalAPI instance
 };
+
+// ── Compatibilité legacy (ancien code Agora référencé ailleurs) ──
+const agoraState = { client: null, localAudioTrack: null, localVideoTrack: null, screenTrack: null, uid: null };
 
 // ── État global du module live ──
 const liveState = {
@@ -284,9 +281,9 @@ async function openLiveRoom(sessionId, role) {
     toggleBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
   }
 
-  // Initialiser Agora (audio/vidéo SFU — scalable 50+ étudiants)
+  // Initialiser Jitsi Meet (audio/vidéo — gratuit, sans serveur)
   showLiveConnecting(true);
-  await initAgora(sessionId, role);
+  await initJitsiRoom(sessionId, role);
 
   // Initialiser PeerJS (DataConnections uniquement : whiteboard, documents, chat)
   await initPeer(sessionId, role);
@@ -313,140 +310,102 @@ function getLiveSessionById(id) {
 }
 
 // ══════════════════════════════════════════
-//  AGORA RTC — Audio/Vidéo SFU (scalable 50+ étudiants)
+//  JITSI MEET — Audio/Vidéo (gratuit, sans serveur, sans token)
 // ══════════════════════════════════════════
-async function initAgora(sessionId, role) {
-  if (typeof AgoraRTC === 'undefined') {
-    showNotif('SDK Agora non chargé. Vérifiez votre connexion internet.', 'error');
+async function initJitsiRoom(sessionId, role) {
+  const wrapper = document.getElementById('live-main-video-wrapper');
+  if (!wrapper) return;
+
+  // Masquer le message d'attente
+  const noVid = document.getElementById('live-no-video-msg');
+  if (noVid) noVid.style.display = 'none';
+  _hideTrainerPlaceholder();
+
+  // Cacher PiP et bande étudiants (Jitsi gère les flux vidéo)
+  const pip = document.getElementById('live-local-pip');
+  if (pip) pip.style.display = 'none';
+  const strip = document.getElementById('live-student-strip');
+  if (strip) strip.style.display = 'none';
+
+  if (typeof JitsiMeetExternalAPI === 'undefined') {
+    // Fallback si le script Jitsi n'est pas encore chargé
+    showNotif('Chargement de la vidéoconférence en cours… Patientez 5 secondes puis réessayez.', '');
     return;
   }
+
+  // Nom de salle unique et non devinable basé sur l'ID session
+  const roomName = 'HermesKnowledge' + sessionId.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+  const displayName = role === 'trainer'
+    ? ((appData.trainers||[]).find(t => t.id === auth.userId)||{}).name || 'Formateur'
+    : (auth.name || 'Étudiant');
+
   try {
-    AgoraRTC.setLogLevel(3); // warnings + errors seulement
-
-    agoraState.client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
-
-    // UID : formateur = 1, étudiants = nombre aléatoire
-    agoraState.uid = role === 'trainer' ? 1 : Math.floor(Math.random() * 900000) + 2;
-
-    // Rejoindre le canal Agora (token null = mode test)
-    await agoraState.client.join(AGORA_APP_ID, sessionId, null, agoraState.uid);
-
-    // Créer et publier les pistes locales
-    try {
-      [agoraState.localAudioTrack, agoraState.localVideoTrack] =
-        await AgoraRTC.createMicrophoneAndCameraTracks(
-          { AEC: true, ANS: true, AGC: true },
-          { encoderConfig: 'standard' }
-        );
-      liveState.camEnabled = true;
-      liveState.micEnabled = true;
-    } catch(e) {
-      try {
-        agoraState.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({ AEC: true, ANS: true });
-        liveState.camEnabled = false;
-        showNotif('Caméra inaccessible — connexion en audio uniquement.', '');
-      } catch(e2) {
-        liveState.camEnabled = false;
-        liveState.micEnabled = false;
-        showNotif('Micro et caméra inaccessibles. Autorisez l\'accès dans les paramètres du navigateur puis rechargez.', 'error');
-      }
-    }
-
-    // Afficher la vidéo locale dans le PiP
-    const pip = document.getElementById('live-local-pip');
-    const oldLocalVid = document.getElementById('live-local-video');
-    if (agoraState.localVideoTrack && pip) {
-      if (oldLocalVid) oldLocalVid.style.display = 'none';
-      pip.style.display = 'block';
-      agoraState.localVideoTrack.play(pip);
-    } else if (pip) {
-      pip.style.display = agoraState.localAudioTrack ? 'block' : 'none';
-    }
-
-    // Publier les pistes locales
-    const tracksToPublish = [
-      agoraState.localAudioTrack,
-      agoraState.localVideoTrack,
-    ].filter(Boolean);
-    if (tracksToPublish.length) await agoraState.client.publish(tracksToPublish);
-
-    // Construire un MediaStream local pour MediaRecorder
-    const msTrackList = tracksToPublish.map(t => t.getMediaStreamTrack()).filter(Boolean);
-    if (msTrackList.length) liveState.localStream = new MediaStream(msTrackList);
-
-    // ── Événements Agora ──
-
-    agoraState.client.on('user-published', async (user, mediaType) => {
-      await agoraState.client.subscribe(user, mediaType);
-
-      if (role === 'student' && user.uid === 1) {
-        // Le formateur publie vidéo ou audio
-        if (mediaType === 'video') {
-          const wrapper = document.getElementById('live-main-video-wrapper');
-          const oldVid  = document.getElementById('live-main-video');
-          const noVid   = document.getElementById('live-no-video-msg');
-          if (oldVid) oldVid.style.display = 'none';
-          if (noVid)  noVid.style.display  = 'none';
-          _hideTrainerPlaceholder();
-          if (wrapper) {
-            // Supprimer les anciens containers Agora (switch caméra ↔ écran)
-            Array.from(wrapper.children).forEach(el => {
-              if (el.id !== 'live-main-video' && el.id !== 'live-no-video-msg' &&
-                  el.id !== 'live-trainer-placeholder' && el.id !== 'live-source-label') {
-                try { el.remove(); } catch(e) {}
-              }
-            });
-            user.videoTrack.play(wrapper);
-          }
-          // Indiquer la source (caméra ou écran)
-          const isScreen = user.videoTrack && user.videoTrack._mediaStreamTrack &&
-            user.videoTrack._mediaStreamTrack.label &&
-            user.videoTrack._mediaStreamTrack.label.toLowerCase().includes('screen');
-          _setSourceLabel(isScreen ? '🖥️ Partage d\'écran' : '📹 Caméra du formateur');
-        }
-        if (mediaType === 'audio') {
-          try { user.audioTrack.play(); } catch(e) {}
-        }
-
-      } else if (role === 'trainer' && user.uid !== 1) {
-        // Un étudiant publie
-        if (mediaType === 'video') {
-          addStudentVideoTileAgora(user.uid);
-          user.videoTrack.play('live-agora-vid-' + user.uid);
-        }
-        if (mediaType === 'audio') {
-          try { user.audioTrack.play(); } catch(e) {}
-        }
-      }
+    jitsiState.api = new JitsiMeetExternalAPI('meet.jit.si', {
+      roomName,
+      width:      '100%',
+      height:     '100%',
+      parentNode: wrapper,
+      configOverwrite: {
+        prejoinPageEnabled:    false,
+        startWithAudioMuted:   false,
+        startWithVideoMuted:   false,
+        disableDeepLinking:    true,
+        enableClosePage:       false,
+        disableInviteFunctions: true,
+        doNotStoreRoom:        true,
+        enableWelcomePage:     false,
+        toolbarButtons: role === 'trainer'
+          ? ['microphone', 'camera', 'desktop', 'fullscreen', 'tileview', 'participants-pane']
+          : ['microphone', 'camera', 'fullscreen', 'tileview', 'participants-pane'],
+      },
+      interfaceConfigOverwrite: {
+        SHOW_JITSI_WATERMARK:        false,
+        SHOW_BRAND_WATERMARK:        false,
+        TOOLBAR_ALWAYS_VISIBLE:      true,
+        MOBILE_APP_PROMO:            false,
+        DISABLE_RINGING:             true,
+        DEFAULT_REMOTE_DISPLAY_NAME: 'Participant',
+        SHOW_POWERED_BY:             false,
+      },
+      userInfo: { displayName, email: '' },
     });
 
-    agoraState.client.on('user-unpublished', (user, mediaType) => {
-      if (role === 'student' && user.uid === 1 && mediaType === 'video') {
-        // Le formateur a désactivé sa caméra ou arrêté son partage
-        _showTrainerPlaceholder();
-        _setSourceLabel('');
-      }
-      if (role === 'trainer' && mediaType === 'video') {
-        removeStudentAgoraTile(user.uid);
-      }
-      updateParticipantsCountDisplay();
+    // ── Événements Jitsi ──
+    jitsiState.api.addEventListeners({
+      videoConferenceJoined: () => {
+        showLiveConnecting(false);
+        liveState.camEnabled = true;
+        liveState.micEnabled = true;
+        updateLiveControls();
+        _setSourceLabel(role === 'student' ? '📹 Caméra du formateur' : '📹 Votre caméra');
+      },
+      audioMuteStatusChanged: ({ muted }) => {
+        liveState.micEnabled = !muted;
+        updateLiveControls();
+      },
+      videoMuteStatusChanged: ({ muted }) => {
+        liveState.camEnabled = !muted;
+        updateLiveControls();
+      },
+      screenSharingStatusChanged: ({ on }) => {
+        liveState.screenSharing = on;
+        updateLiveControls();
+      },
+      participantJoined: () => updateParticipantsCountDisplay(),
+      participantLeft:   () => updateParticipantsCountDisplay(),
+      videoConferenceLeft: () => {
+        if (liveState.role === 'student') handleSessionEnded();
+      },
     });
 
-    agoraState.client.on('user-left', (user) => {
-      if (role === 'student' && user.uid === 1) {
-        // Le formateur a quitté → fin de session
-        handleSessionEnded();
-      } else if (role === 'trainer') {
-        removeStudentAgoraTile(user.uid);
-      }
-      updateParticipantsCountDisplay();
-    });
-
-    agoraState.client.on('user-joined', () => updateParticipantsCountDisplay());
+    liveState.camEnabled  = true;
+    liveState.micEnabled  = true;
 
   } catch(e) {
-    console.error('[Agora] Erreur initialisation:', e);
-    showNotif('Erreur de connexion au cours en direct (' + (e.message || e.code || e) + ').', 'error');
+    console.error('[Jitsi] Erreur initialisation:', e);
+    showNotif('Erreur vidéo : ' + (e.message || String(e)), 'error');
+    showLiveConnecting(false);
   }
 }
 
@@ -578,34 +537,10 @@ function _setSourceLabel(text) {
   }
 }
 
-function addStudentVideoTileAgora(uid) {
-  const strip = document.getElementById('live-student-strip');
-  if (!strip) return;
-  const tileId = 'live-agora-tile-' + uid;
-  if (document.getElementById(tileId)) return;
-  const tile = document.createElement('div');
-  tile.className = 'live-student-tile';
-  tile.id = tileId;
-  tile.innerHTML =
-    '<div style="width:100%;height:100%;background:#060b14;" id="live-agora-vid-' + uid + '"></div>' +
-    '<div class="live-student-tile-online"></div>' +
-    '<div class="live-student-tile-label">Étudiant</div>';
-  strip.appendChild(tile);
-  updateParticipantsCountDisplay();
-}
-
-function removeStudentAgoraTile(uid) {
-  const tile = document.getElementById('live-agora-tile-' + uid);
-  if (tile) tile.remove();
-  updateParticipantsCountDisplay();
-}
-
-function removeStudentVideoTile(peerId) {
-  const tile = document.getElementById('live-tile-' + peerId);
-  if (tile) tile.remove();
-  delete liveState.calls[peerId];
-  updateParticipantsCountDisplay();
-}
+// Jitsi gère l'affichage des participants — ces fonctions sont conservées pour compatibilité
+function addStudentVideoTileAgora(uid) {}
+function removeStudentAgoraTile(uid)  {}
+function removeStudentVideoTile(peerId) { delete liveState.calls[peerId]; }
 
 function handlePeerData(data, fromPeerId) {
   if (!data || !data.type) return;
@@ -695,47 +630,15 @@ function handlePeerData(data, fromPeerId) {
 }
 
 // ══════════════════════════════════════════
-//  ENREGISTREMENT — MediaRecorder
+//  ENREGISTREMENT — désactivé avec Jitsi
+//  (Jitsi n'expose pas de MediaStream local)
 // ══════════════════════════════════════════
 function startLiveRecording() {
-  // Reconstruire le MediaStream depuis les pistes Agora si nécessaire
-  if (!liveState.localStream) {
-    const tracks = [agoraState.localAudioTrack, agoraState.localVideoTrack]
-      .filter(Boolean).map(t => t.getMediaStreamTrack()).filter(Boolean);
-    if (tracks.length) liveState.localStream = new MediaStream(tracks);
-  }
-  if (!liveState.localStream || liveState.recording) return;
-  try {
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
-      ? 'video/webm;codecs=vp9,opus'
-      : MediaRecorder.isTypeSupported('video/webm')
-        ? 'video/webm'
-        : '';
-
-    const options = mimeType ? { mimeType } : {};
-    liveState.recorder = new MediaRecorder(liveState.localStream, options);
-    liveState.recordedChunks = [];
-
-    liveState.recorder.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0) liveState.recordedChunks.push(e.data);
-    };
-
-    liveState.recorder.onstop = onRecordingStopped;
-    liveState.recorder.start(2000); // chunk toutes les 2s
-    liveState.recording = true;
-    updateLiveControls();
-    showNotif('⏺ Enregistrement démarré automatiquement.', '');
-  } catch(e) {
-    console.warn('[Live] MediaRecorder non disponible:', e);
-  }
+  // Non disponible avec Jitsi Meet (pas d'accès direct au MediaStream)
 }
-
 function stopLiveRecording() {
-  if (liveState.recorder && liveState.recording) {
-    liveState.recorder.stop();
-    liveState.recording = false;
-    updateLiveControls();
-  }
+  liveState.recording = false;
+  updateLiveControls();
 }
 
 async function onRecordingStopped() {
@@ -779,86 +682,29 @@ async function onRecordingStopped() {
 }
 
 // ══════════════════════════════════════════
-//  CONTRÔLES MÉDIA
+//  CONTRÔLES MÉDIA — via Jitsi External API
 // ══════════════════════════════════════════
 function liveToggleCamera() {
-  if (!agoraState.localVideoTrack) return;
-  liveState.camEnabled = !liveState.camEnabled;
-  agoraState.localVideoTrack.setEnabled(liveState.camEnabled);
-  updateLiveControls();
+  if (!jitsiState.api) return;
+  jitsiState.api.executeCommand('toggleVideo');
+  // L'état est mis à jour via l'événement videoMuteStatusChanged
 }
 
 function liveToggleMic() {
-  if (!agoraState.localAudioTrack) return;
-  liveState.micEnabled = !liveState.micEnabled;
-  agoraState.localAudioTrack.setEnabled(liveState.micEnabled);
-  updateLiveControls();
+  if (!jitsiState.api) return;
+  jitsiState.api.executeCommand('toggleAudio');
+  // L'état est mis à jour via l'événement audioMuteStatusChanged
 }
 
 async function liveToggleScreenShare() {
-  if (liveState.screenSharing) {
-    await liveStopScreenShare();
-  } else {
-    await liveStartScreenShare();
-  }
+  if (!jitsiState.api) return;
+  jitsiState.api.executeCommand('toggleShareScreen');
+  // L'état est mis à jour via l'événement screenSharingStatusChanged
 }
 
-async function liveStartScreenShare() {
-  if (!agoraState.client) return;
-  try {
-    // Créer la piste de partage d'écran via Agora
-    agoraState.screenTrack = await AgoraRTC.createScreenVideoTrack(
-      { encoderConfig: '1080p_1', optimizationMode: 'detail' },
-      'disable' // pas d'audio système (on garde le micro)
-    );
-    liveState.screenSharing = true;
-
-    // Dépublier la caméra, publier l'écran
-    if (agoraState.localVideoTrack) {
-      await agoraState.client.unpublish(agoraState.localVideoTrack);
-    }
-    await agoraState.client.publish(agoraState.screenTrack);
-
-    // Afficher l'écran localement dans la zone principale du formateur
-    const wrapper = document.getElementById('live-main-video-wrapper');
-    const oldVid  = document.getElementById('live-main-video');
-    if (oldVid) oldVid.style.display = 'none';
-    if (wrapper) agoraState.screenTrack.play(wrapper);
-    _setSourceLabel('🖥️ Partage d\'écran');
-
-    // Écouter la fin de partage (bouton stop du navigateur)
-    agoraState.screenTrack.on('track-ended', liveStopScreenShare);
-
-    updateLiveControls();
-    showNotif('Partage d\'écran activé.', '');
-  } catch(e) {
-    liveState.screenSharing = false;
-    if (e.code !== 'PERMISSION_DENIED' && e.name !== 'NotAllowedError') {
-      showNotif('Impossible de partager l\'écran.', 'error');
-    }
-  }
-}
-
-async function liveStopScreenShare() {
-  if (!agoraState.screenTrack) return;
-  try {
-    await agoraState.client.unpublish(agoraState.screenTrack);
-    agoraState.screenTrack.stop();
-    agoraState.screenTrack.close();
-    agoraState.screenTrack = null;
-    liveState.screenSharing = false;
-
-    // Republier la caméra
-    if (agoraState.localVideoTrack) {
-      await agoraState.client.publish(agoraState.localVideoTrack);
-      const pip = document.getElementById('live-local-pip');
-      if (pip) agoraState.localVideoTrack.play(pip);
-      _setSourceLabel('📹 Caméra du formateur');
-    }
-  } catch(e) { console.warn('[Live] Stop screen share:', e); }
-  updateLiveControls();
-  showNotif('Partage d\'écran arrêté.', '');
-}
+// Conservées pour compatibilité (aucune action sans Agora)
+async function liveStartScreenShare() { liveToggleScreenShare(); }
+async function liveStopScreenShare()  { liveToggleScreenShare(); }
 
 // ══════════════════════════════════════════
 //  FIN DE SESSION
@@ -949,15 +795,16 @@ function markLivePresenceInPointage(sessionId) {
 }
 
 function cleanupLive() {
-  // Libérer les ressources Agora
-  if (agoraState.localAudioTrack) { try { agoraState.localAudioTrack.stop(); agoraState.localAudioTrack.close(); } catch(e){} agoraState.localAudioTrack = null; }
-  if (agoraState.localVideoTrack) { try { agoraState.localVideoTrack.stop(); agoraState.localVideoTrack.close(); } catch(e){} agoraState.localVideoTrack = null; }
-  if (agoraState.screenTrack)     { try { agoraState.screenTrack.stop();     agoraState.screenTrack.close();     } catch(e){} agoraState.screenTrack = null; }
-  if (agoraState.client)          { try { agoraState.client.leave(); }        catch(e){} agoraState.client = null; }
-  agoraState.uid = null;
+  // Libérer Jitsi
+  if (jitsiState.api) { try { jitsiState.api.dispose(); } catch(e){} jitsiState.api = null; }
 
-  // Arrêter le stream local (MediaRecorder)
-  if (liveState.localStream)  { liveState.localStream.getTracks().forEach(t => t.stop()); liveState.localStream = null; }
+  // Arrêter l'enregistrement si actif
+  if (liveState.recorder && liveState.recording) {
+    try { liveState.recorder.stop(); } catch(e) {}
+  }
+  liveState.recorder = null;
+  liveState.recording = false;
+  liveState.localStream = null;
   liveState.screenStream = null;
 
   // Fermer les DataConnections PeerJS
@@ -1409,10 +1256,9 @@ function updateLiveTopbarInfo() {
 }
 
 function updateParticipantsCountDisplay() {
-  // Compter via Agora (utilisateurs dans le canal) + fallback JSONBin
   let n = 0;
-  if (agoraState.client && agoraState.client.remoteUsers) {
-    n = agoraState.client.remoteUsers.length;
+  if (jitsiState.api) {
+    try { n = Math.max(0, jitsiState.api.getNumberOfParticipants() - 1); } catch(e) {}
   } else {
     const session = getLiveSessionById(liveState.sessionId);
     n = session ? Object.keys(session.attendees || {}).length : 0;
@@ -1459,7 +1305,7 @@ function updateLiveControls() {
     wbBtn.querySelector('.live-ctrl-label').textContent = wbState.active ? 'Tableau ✓' : 'Tableau';
   }
 
-  // Masquer les boutons formateur et la bande étudiants si étudiant
+  // Masquer les boutons formateur si étudiant
   if (liveState.role === 'student') {
     if (screenBtn) screenBtn.style.display = 'none';
     if (recBtn)    recBtn.style.display    = 'none';
@@ -1467,10 +1313,14 @@ function updateLiveControls() {
     if (wbBtn)     wbBtn.style.display     = 'none';
     const fileInput = document.getElementById('live-doc-file-input');
     if (fileInput) fileInput.style.display = 'none';
-    // Cacher la bande des tuiles étudiants (réservée au formateur)
+    // Caméra et micro gérés par Jitsi — masquer nos boutons doublons pour l'étudiant
+    if (camBtn) camBtn.style.display = 'none';
+    if (micBtn) micBtn.style.display = 'none';
     const strip = document.getElementById('live-student-strip');
     if (strip) strip.style.display = 'none';
   }
+  // Enregistrement non disponible avec Jitsi → masquer pour tous
+  if (recBtn) recBtn.style.display = 'none';
 }
 
 function showLiveConnecting(show) {

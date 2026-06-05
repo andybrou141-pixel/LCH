@@ -1282,57 +1282,20 @@
 }
 
 /* ══════════════════════════════════════════════════════════
-   FIX AGORA SDK — VIDEO CONTAINER SIZING
-   Agora injecte une <div> avec des pixels fixes à l'intérieur
-   du wrapper. Ces règles forcent le remplissage du conteneur.
+   JITSI MEET — iframe video container
    ══════════════════════════════════════════════════════════ */
 
-/* Zone principale — vidéo formateur (vu par l'étudiant) */
+/* Zone principale — iframe Jitsi */
 #live-main-video-wrapper {
   position: relative !important;
 }
-#live-main-video-wrapper > div:not(#live-no-video-msg):not(#live-trainer-placeholder) {
+#live-main-video-wrapper > iframe {
   position: absolute !important;
   inset: 0 !important;
   width: 100% !important;
   height: 100% !important;
-  background: #060b14 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-#live-main-video-wrapper > div:not(#live-no-video-msg):not(#live-trainer-placeholder) video {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: contain !important;
-  display: block !important;
-}
-
-/* PiP — caméra locale */
-#live-local-pip {
-  position: absolute !important;
-}
-#live-local-pip > div {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-}
-#live-local-pip > div video {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-}
-
-/* Tuiles étudiants (bande formateur) */
-.live-student-tile > div {
-  width: 100% !important;
-  height: 100% !important;
-}
-.live-student-tile video {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
+  border: none !important;
+  background: #060b14;
 }
 
 /* ── Placeholder caméra formateur désactivée (vue étudiant) ── */
