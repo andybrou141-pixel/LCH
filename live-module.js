@@ -396,7 +396,10 @@ async function initPeer(sessionId, role) {
               });
             } catch(e) {}
           }
-          // Envoyer les traits du tableau blanc
+          // Envoyer l'état du tableau blanc (actif ou non + traits existants)
+          if (wbState.active || wbState.strokes.length) {
+            try { conn.send({ type: 'wb-toggle', active: true }); } catch(e) {}
+          }
           if (wbState.strokes.length) {
             try { conn.send({ type: 'wb-init', strokes: wbState.strokes }); } catch(e) {}
           }
@@ -2475,12 +2478,16 @@ function _wbHideTextInput() {
 // Garantit que le canvas étudiant est visible et dimensionné correctement
 function _ensureWbCanvas(canvas) {
   const area = document.getElementById('live-video-area');
-  const w = area ? area.offsetWidth  : window.innerWidth;
-  const h = area ? area.offsetHeight : window.innerHeight;
+  const w = (area && area.offsetWidth)  || window.innerWidth  || 800;
+  const h = (area && area.offsetHeight) || window.innerHeight || 600;
   // Redimensionner si nécessaire (0×0 ou taille changée)
   if (canvas.width !== w || canvas.height !== h) {
-    canvas.width  = w || canvas.offsetWidth  || 800;
-    canvas.height = h || canvas.offsetHeight || 600;
+    canvas.width  = w;
+    canvas.height = h;
+    // Redessiner les traits existants après resize (canvas.width = x efface tout)
+    if (wbState.strokes && wbState.strokes.length) {
+      _redrawWb();
+    }
   }
   if (!canvas.classList.contains('active')) {
     canvas.classList.add('active', 'view-only');
@@ -2491,7 +2498,12 @@ function _ensureWbCanvas(canvas) {
 function _receiveWbSeg(seg) {
   const canvas = document.getElementById('live-whiteboard-canvas');
   if (!canvas) return;
-  _ensureWbCanvas(canvas);
+  // Activer uniquement si pas encore visible (évite resize+clear en cours de dessin)
+  if (!canvas.classList.contains('active')) {
+    _ensureWbCanvas(canvas);
+  } else if (!canvas.width || !canvas.height) {
+    _ensureWbCanvas(canvas);
+  }
   const ctx      = canvas.getContext('2d');
   const isEraser = seg.tool === 'eraser';
   const isMarker = seg.tool === 'marker';
@@ -2513,7 +2525,9 @@ function _receiveWbStroke(stroke) {
   wbState.strokes.push(stroke);
   const canvas = document.getElementById('live-whiteboard-canvas');
   if (!canvas) return;
-  _ensureWbCanvas(canvas);
+  if (!canvas.classList.contains('active') || !canvas.width || !canvas.height) {
+    _ensureWbCanvas(canvas);
+  }
   const ctx = canvas.getContext('2d');
   _drawWbStroke(ctx, canvas, stroke);
 }
