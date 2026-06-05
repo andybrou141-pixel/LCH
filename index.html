@@ -11896,9 +11896,9 @@ function renderSectionCourses() {
   if (filters) {
     // Filtres vidéo
     if (allVideos.length) {
-      filters.innerHTML = '<button onclick="filterTour3Videos(\'all\')" class="t3-filter" style="background:#C62828;color:#fff;border:none;border-radius:50px;padding:0.35rem 0.85rem;font-size:0.75rem;font-weight:600;cursor:pointer;">Toutes</button>'
+      filters.innerHTML = '<button onclick="filterTour3Videos(\'all\', this)" class="t3-filter" style="background:#C62828;color:#fff;border:none;border-radius:50px;padding:0.35rem 0.85rem;font-size:0.75rem;font-weight:600;cursor:pointer;">Toutes</button>'
         + t3Courses.filter(c => allVideos.some(v => v.courseId === c.id)).map(c =>
-            `<button onclick="filterTour3Videos('${c.id}')" class="t3-filter" style="background:#fff;color:#C62828;border:1px solid #C62828;border-radius:50px;padding:0.35rem 0.85rem;font-size:0.75rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">${iconHTML(c.icon, 12)} ${c.name}</button>`).join('');
+            `<button onclick="filterTour3Videos('${c.id}', this)" class="t3-filter" style="background:#fff;color:#C62828;border:1px solid #C62828;border-radius:50px;padding:0.35rem 0.85rem;font-size:0.75rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">${iconHTML(c.icon, 12)} ${c.name}</button>`).join('');
     } else {
       filters.innerHTML = '';
     }
@@ -11928,7 +11928,7 @@ function buildTour3Grid(grid, pdfCourses, videos) {
     || '<p style="color:#aaa;font-size:0.83rem;padding:0.5rem 0;text-align:center;">Aucun contenu du 3ème tour.</p>';
 }
 
-function filterTour3Videos(courseId) {
+function filterTour3Videos(courseId, btn) {
   const grid = document.getElementById('sec-courses-tour3-grid');
   const all = loadVideos();
   const filtered = courseId === 'all' ? all : all.filter(v => v.courseId === courseId);
@@ -11936,7 +11936,7 @@ function filterTour3Videos(courseId) {
   document.querySelectorAll('.t3-filter').forEach(b => {
     b.style.background = '#fff'; b.style.color = '#C62828';
   });
-  event.target.style.background = '#C62828'; event.target.style.color = '#fff';
+  if (btn) { btn.style.background = '#C62828'; btn.style.color = '#fff'; }
   buildTour3Grid(grid, courseId === 'all' ? t3PdfCourses : [], filtered);
 }
 
@@ -12061,43 +12061,6 @@ function renderStudentLiveSection() {
 
   // Aussi rafraîchir les enregistrements
   if (typeof renderStudentLiveRecordings === 'function') renderStudentLiveRecordings();
-}
-
-function updateStudentLiveCard() {
-  const card    = document.getElementById('student-live-card');
-  const titleEl = document.getElementById('student-live-card-title');
-  const trainEl = document.getElementById('student-live-card-trainer');
-  const btn     = document.getElementById('student-live-card-btn');
-  if (!card) return;
-
-  // Lire depuis localStorage pour avoir les données les plus fraîches
-  let liveSession = null;
-  try {
-    const raw = localStorage.getItem('hermes_knowledge_data');
-    if (raw) {
-      const d = JSON.parse(raw);
-      liveSession = (d.liveSessions || []).find(s => s.status === 'active') || null;
-    }
-  } catch(e) {}
-
-  if (liveSession) {
-    if (titleEl) titleEl.textContent = liveSession.courseName || 'Cours en direct';
-    if (trainEl) trainEl.textContent = 'Formateur : ' + (liveSession.trainerName || '–');
-    if (btn) btn.onclick = function() {
-      if (typeof studentJoinLiveSession === 'function') {
-        studentJoinLiveSession(liveSession.id);
-      }
-    };
-    card.style.display = 'block';
-
-    // Badge dans le bouton sidebar
-    const sideBadge = document.getElementById('student-live-rec-badge');
-    if (sideBadge) { sideBadge.textContent = 'LIVE'; sideBadge.style.display = 'inline-flex'; sideBadge.style.background = '#ef4444'; }
-  } else {
-    card.style.display = 'none';
-    const sideBadge = document.getElementById('student-live-rec-badge');
-    if (sideBadge) sideBadge.style.display = 'none';
-  }
 }
 
 function updateStudentUI() {
@@ -12245,7 +12208,7 @@ function buildTour3ExGrid(grid, pdfExs, videoExs, now, sevenDays) {
   grid.innerHTML = html || '<p style="color:#aaa;font-size:0.83rem;padding:0.5rem 0;text-align:center;">Aucun exercice du 3ème tour.</p>';
 }
 
-function filterTour3Exercises(exId) {
+function filterTour3Exercises(exId, btn) {
   const grid = document.getElementById('sec-exercises-tour3-grid');
   const now = Date.now();
   const sevenDays = 7 * 24 * 60 * 60 * 1000;
@@ -12253,7 +12216,7 @@ function filterTour3Exercises(exId) {
   const t3PdfExs = t3All.filter(ex => !ex.contentType || ex.contentType === 'pdf');
   const t3VideoExs = t3All.filter(ex => ex.contentType === 'video');
   document.querySelectorAll('.t3-ex-filter').forEach(b => { b.style.background = '#fff'; b.style.color = '#C62828'; });
-  event.target.style.background = '#C62828'; event.target.style.color = '#fff';
+  if (btn) { btn.style.background = '#C62828'; btn.style.color = '#fff'; }
   const filteredVideos = exId === 'all' ? t3VideoExs : t3VideoExs.filter(ex => ex.id === exId);
   buildTour3ExGrid(grid, exId === 'all' ? t3PdfExs : [], filteredVideos, now, sevenDays);
 }
@@ -12298,8 +12261,8 @@ function renderSectionExercises() {
 
   if (t3Filters) {
     if (t3VideoExs.length) {
-      t3Filters.innerHTML = '<button onclick="filterTour3Exercises(\'all\')" class="t3-ex-filter" style="background:#C62828;color:#fff;border:none;border-radius:50px;padding:0.35rem 0.85rem;font-size:0.75rem;font-weight:600;cursor:pointer;">Toutes</button>'
-        + t3VideoExs.map(ex => `<button onclick="filterTour3Exercises('${ex.id}')" class="t3-ex-filter" style="background:#fff;color:#C62828;border:1px solid #C62828;border-radius:50px;padding:0.35rem 0.85rem;font-size:0.75rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> ${ex.name}</button>`).join('');
+      t3Filters.innerHTML = '<button onclick="filterTour3Exercises(\'all\', this)" class="t3-ex-filter" style="background:#C62828;color:#fff;border:none;border-radius:50px;padding:0.35rem 0.85rem;font-size:0.75rem;font-weight:600;cursor:pointer;">Toutes</button>'
+        + t3VideoExs.map(ex => `<button onclick="filterTour3Exercises('${ex.id}', this)" class="t3-ex-filter" style="background:#fff;color:#C62828;border:1px solid #C62828;border-radius:50px;padding:0.35rem 0.85rem;font-size:0.75rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> ${ex.name}</button>`).join('');
     } else {
       t3Filters.innerHTML = '';
     }
@@ -12482,7 +12445,7 @@ async function loadAppData() {
   const _emptyData = () => ({
     tours: [...DEFAULT_TOURS], courses: [], exerciseTypes: [], questions: {},
     users: [], promotions: [], trainers: [], sessions: [],
-    liveSessions: [], liveRecordings: [], assessments: [], assessmentAttempts: []
+    liveSessions: [], liveRecordings: [], assessments: [], assessmentAttempts: [], liveChats: {}
   });
   try {
     const res = await fetch(JSONBIN_URL + "/latest", {
@@ -12524,7 +12487,7 @@ function saveAppData(render = true) {
       } catch(_e) {}
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-  _saveToJsonBin();
+    _saveToJsonBin();
   } catch (e) {
     console.warn('localStorage indisponible', e);
   }
@@ -15751,6 +15714,11 @@ function showInteractiveResults() {
     state.totalScore = (state.totalScore || 0) + iexState.totalPts;
     saveUserStats();
   }
+  if (iexState && iexState.exerciseId && auth && auth.userId) {
+    if (!appData.assessmentAttempts) appData.assessmentAttempts = [];
+    appData.assessmentAttempts.push({ userId: auth.userId, exerciseId: iexState.exerciseId, score: iexState.score || 0, maxScore: iexState.totalPts || 0, date: Date.now() });
+    saveAppData(false);
+  }
 }
 
 function restartInteractiveExercise() {
@@ -15762,6 +15730,56 @@ function restartInteractiveExercise() {
 function closeInteractivePlayer() {
   document.getElementById('interactive-ex-overlay').style.display = 'none';
   document.body.style.overflow = '';
+}
+
+function renderStudentAssessments() {
+  var container = document.getElementById('sec-assessments-content');
+  if (!container) return;
+  var assm = (appData.exerciseTypes || []).filter(function(ex) { return ex.questions && ex.questions.length > 0; });
+  if (!assm.length) {
+    container.innerHTML = '<div style="text-align:center;padding:2rem;color:#999;"><p style="font-size:1.5rem;">📋</p><p>Aucune évaluation disponible pour le moment.</p></div>';
+    return;
+  }
+  var uid = auth && auth.userId;
+  container.innerHTML = assm.map(function(ex) {
+    var att = (appData.assessmentAttempts || []).filter(function(a) { return a.userId === uid && a.exerciseId === ex.id; });
+    var best = att.reduce(function(m, a) { return Math.max(m, a.score || 0); }, 0);
+    var maxScore = att.length > 0 ? (att[0].maxScore || 0) : 0;
+    var done = att.length > 0;
+    var pct = maxScore > 0 ? Math.round(best / maxScore * 100) : 0;
+    return '<div style="background:#fff;border-radius:12px;padding:1.2rem 1.5rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:space-between;">'
+      + '<div><div style="font-weight:600;color:#1a2236;">' + (ex.name || 'Évaluation') + '</div>'
+      + (done ? '<div style="font-size:.85rem;color:#4caf50;margin-top:.3rem;">Meilleur score : ' + best + '/' + maxScore + ' (' + pct + '%)</div>'
+              : '<div style="font-size:.85rem;color:#999;margin-top:.3rem;">Non commencé</div>')
+      + '</div>'
+      + '<button onclick="startInteractiveExercise(\'' + ex.id + '\')" style="background:#C62828;color:#fff;border:none;border-radius:8px;padding:.5rem 1.2rem;font-size:.9rem;cursor:pointer;">'
+      + (done ? '↻ Refaire' : '▶ Commencer') + '</button>'
+      + '</div>';
+  }).join('');
+}
+
+function renderTrainerAssessments() {
+  var container = document.getElementById('trainer-assessments-content');
+  if (!container) return;
+  var myEx = (appData.exerciseTypes || []).filter(function(ex) {
+    return (ex.trainerId === auth.userId || ex.createdBy === auth.userId) && ex.questions && ex.questions.length > 0;
+  });
+  if (!myEx.length) {
+    container.innerHTML = '<div style="text-align:center;padding:2rem;color:#999;"><p style="font-size:1.5rem;">📋</p><p>Aucune évaluation créée. Ajoutez des questions à vos exercices interactifs.</p></div>';
+    return;
+  }
+  var html = '<h3 style="margin:0 0 1rem;color:#1a2236;">Mes évaluations</h3>';
+  myEx.forEach(function(ex) {
+    var attempts = (appData.assessmentAttempts || []).filter(function(a) { return a.exerciseId === ex.id; });
+    var nb = attempts.length;
+    var avg = nb > 0 ? Math.round(attempts.reduce(function(s, a) { return s + (a.score || 0); }, 0) / nb) : 0;
+    html += '<div style="background:#fff;border-radius:12px;padding:1.2rem 1.5rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(0,0,0,.08);">'
+      + '<div style="font-weight:600;color:#1a2236;margin-bottom:.5rem;">' + (ex.name || 'Évaluation') + '</div>'
+      + '<div style="font-size:.85rem;color:#666;">' + (ex.questions ? ex.questions.length : 0) + ' question(s) · ' + nb + ' tentative(s)'
+      + (nb > 0 ? ' · Score moyen : ' + avg : '') + '</div>'
+      + '</div>';
+  });
+  container.innerHTML = html;
 }
 </script>
 <script src="live-module.js"></script>
