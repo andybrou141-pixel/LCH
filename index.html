@@ -13116,33 +13116,6 @@ function renderAdminWidgets() {
   }
 }
 
-function renderAdminUsersList() {
-  const list = document.getElementById('admin-users-list');
-  if (!list) return;
-  if (!appData.users.length) {
-    list.innerHTML = '<div class="empty-state">Aucun étudiant inscrit pour le moment.</div>';
-    return;
-  }
-  const sorted = [...appData.users].sort((a, b) => (b.lastLogin || 0) - (a.lastLogin || 0));
-  list.innerHTML = sorted.map(u => {
-    const date = u.lastLogin ? new Date(u.lastLogin).toLocaleDateString('fr-FR') : '—';
-    return `
-      <div class="admin-item user-row">
-        <span class="admin-item-icon" style="width:40px;height:40px;border-radius:50%;background:rgba(201,168,76,0.15);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--gold);">${u.name.substring(0,2).toUpperCase()}</span>
-        <div class="admin-item-info">
-          <div class="admin-item-title">${u.name}</div>
-          <div class="admin-item-meta" style="display:flex;flex-wrap:wrap;gap:0.6rem;align-items:center;">
-            ${u.email ? `<span style="display:inline-flex;align-items:center;gap:0.25rem;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>${u.email}</span>` : ''}
-            <span style="display:inline-flex;align-items:center;gap:0.25rem;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>${u.quizPlayed || 0} quiz</span>
-            <span style="display:inline-flex;align-items:center;gap:0.25rem;color:#D97706;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>${u.totalScore || 0} pts</span>
-            <span style="display:inline-flex;align-items:center;gap:0.25rem;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${date}</span>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
 // ─── Cours : type de contenu PDF/Vidéo ───────────────────────────────────────
 function selectCourseContentType(type) {
   document.getElementById('course-content-type').value = type;
