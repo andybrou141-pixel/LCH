@@ -812,6 +812,7 @@ function cleanupLive() {
   wbState.strokes = [];
   wbState.active = false;
   wbState.drawing = false;
+  _wbHideTextInput();
   const wbCanvas = document.getElementById('live-whiteboard-canvas');
   if (wbCanvas) { wbCanvas.classList.remove('active','view-only'); try { const ctx=wbCanvas.getContext('2d'); ctx.clearRect(0,0,wbCanvas.width,wbCanvas.height); } catch(e){} }
   const wbToolbar = document.getElementById('live-wb-toolbar');
@@ -2044,6 +2045,13 @@ function _wbNorm(e, canvas) {
 
 function _wbDown(e) {
   if (!wbState.active || liveState.role !== 'trainer') return;
+  // Outil texte : ouvrir la saisie clavier à l'endroit du clic
+  if (wbState.tool === 'text') {
+    const pt = _wbNorm(e, this);
+    _wbShowTextInput(pt.x, pt.y, this);
+    e.preventDefault();
+    return;
+  }
   wbState.drawing = true;
   wbState.lastPt  = _wbNorm(e, this);
   wbState.currentStroke = [wbState.lastPt];
@@ -2051,7 +2059,7 @@ function _wbDown(e) {
 }
 
 function _wbMove(e) {
-  if (!wbState.drawing) return;
+  if (!wbState.drawing || wbState.tool === 'text') return;
   const canvas = document.getElementById('live-whiteboard-canvas');
   if (!canvas) return;
   const pt  = _wbNorm(e, canvas);
@@ -2109,6 +2117,11 @@ function _redrawWb() {
 }
 
 function _drawWbStroke(ctx, canvas, stroke) {
+  // Élément texte
+  if (stroke.tool === 'text') {
+    _drawWbText(ctx, canvas, stroke);
+    return;
+  }
   if (!stroke.points || stroke.points.length < 2) return;
   const isEraser = stroke.tool === 'eraser';
   const isMarker = stroke.tool === 'marker';
@@ -2126,6 +2139,159 @@ function _drawWbStroke(ctx, canvas, stroke) {
   ctx.stroke();
   ctx.globalAlpha = 1.0;
   ctx.globalCompositeOperation = 'source-over';
+}
+
+function _drawWbText(ctx, canvas, item) {
+  const fontSize = Math.max(14, item.size || 24);
+  ctx.font = '600 ' + fontSize + 'px \'DM Sans\', sans-serif';
+  ctx.fillStyle = item.color || '#ffffff';
+  ctx.globalAlpha = 1.0;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.textBaseline = 'top';
+  // Ombre pour lisibilité sur n'importe quel fond
+  ctx.shadowColor = 'rgba(0,0,0,0.85)';
+  ctx.shadowBlur  = 5;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
+  const maxW  = canvas.width * 0.48;
+  const lines = _wbWrapText(ctx, item.text || '', maxW);
+  const lineH = fontSize * 1.45;
+  const x = item.x * canvas.width;
+  const y = item.y * canvas.height;
+  lines.forEach(function(line, i) { ctx.fillText(line, x, y + i * lineH); });
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur  = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+}
+
+function _wbWrapText(ctx, text, maxWidth) {
+  if (!text) return [''];
+  const paragraphs = text.split('\n');
+  const result = [];
+  paragraphs.forEach(function(para) {
+    const words = para.split(' ');
+    let current = '';
+    words.forEach(function(word) {
+      const test = current ? current + ' ' + word : word;
+      if (ctx.measureText(test).width > maxWidth && current) {
+        result.push(current);
+        current = word;
+      } else {
+        current = test;
+      }
+    });
+    if (current) result.push(current);
+    else result.push('');
+  });
+  return result.length ? result : [''];
+}
+
+// ── Saisie texte (outil texte du tableau blanc) ──
+function _wbShowTextInput(normX, normY, canvas) {
+  _wbHideTextInput(); // fermer l'éventuelle saisie précédente
+
+  const rect     = canvas.getBoundingClientRect();
+  const pixX     = normX * rect.width  + rect.left;
+  const pixY     = normY * rect.height + rect.top;
+  const fontSize = Math.max(14, wbState.size * 4);
+  const color    = wbState.color || '#ffffff';
+
+  const overlay = document.createElement('div');
+  overlay.id = 'live-wb-text-overlay';
+  overlay.style.left = pixX + 'px';
+  overlay.style.top  = pixY + 'px';
+
+  const ta = document.createElement('textarea');
+  ta.id = 'live-wb-text-ta';
+  ta.rows = 2;
+  ta.placeholder = 'Écrivez ici…';
+  ta.style.cssText = [
+    'border: 1.5px dashed ' + color,
+    'color: ' + color,
+    'font-size: ' + fontSize + 'px',
+    'caret-color: ' + color,
+    'text-shadow: 0 1px 6px rgba(0,0,0,0.9)',
+    'width: 220px',
+    'max-height: 160px',
+  ].join(';');
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.textContent = '✓';
+  confirmBtn.className   = 'wb-text-action-btn';
+  confirmBtn.style.cssText = 'background:#22C55E;color:#fff;';
+  confirmBtn.onclick = _wbCommitText;
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = '✕';
+  cancelBtn.className   = 'wb-text-action-btn';
+  cancelBtn.style.cssText = 'background:#ef4444;color:#fff;margin-top:4px;';
+  cancelBtn.onclick = _wbHideTextInput;
+
+  const btnCol = document.createElement('div');
+  btnCol.style.cssText = 'display:flex;flex-direction:column;';
+  btnCol.appendChild(confirmBtn);
+  btnCol.appendChild(cancelBtn);
+
+  overlay.appendChild(ta);
+  overlay.appendChild(btnCol);
+  document.body.appendChild(overlay);
+
+  // Stocker la position normalisée pour le commit
+  overlay.dataset.normX = normX;
+  overlay.dataset.normY = normY;
+
+  ta.focus();
+  ta.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { _wbHideTextInput(); }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _wbCommitText(); }
+  });
+}
+
+function _wbCommitText() {
+  const overlay = document.getElementById('live-wb-text-overlay');
+  const ta      = document.getElementById('live-wb-text-ta');
+  if (!overlay || !ta) return;
+
+  const text  = ta.value.trim();
+  const normX = parseFloat(overlay.dataset.normX || '0');
+  const normY = parseFloat(overlay.dataset.normY || '0');
+  _wbHideTextInput();
+
+  if (!text) return;
+
+  const canvas = document.getElementById('live-whiteboard-canvas');
+  if (!canvas) return;
+
+  // Initialiser le canvas si pas encore actif (formateur uniquement)
+  if (!canvas.classList.contains('active')) {
+    const area = document.getElementById('live-video-area');
+    if (area) { canvas.width = area.offsetWidth; canvas.height = area.offsetHeight; }
+    canvas.classList.add('active');
+  }
+
+  const item = {
+    tool:  'text',
+    text:  text,
+    x:     normX,
+    y:     normY,
+    color: wbState.color,
+    size:  Math.max(14, wbState.size * 4),
+  };
+
+  wbState.strokes.push(item);
+  const ctx = canvas.getContext('2d');
+  _drawWbText(ctx, canvas, item);
+
+  // Diffuser aux étudiants
+  Object.values(liveState.connections).forEach(function(conn) {
+    try { conn.send({ type: 'wb-stroke', stroke: item }); } catch(e) {}
+  });
+}
+
+function _wbHideTextInput() {
+  const overlay = document.getElementById('live-wb-text-overlay');
+  if (overlay) overlay.remove();
 }
 
 function _receiveWbStroke(stroke) {
