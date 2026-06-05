@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulation Mobile — Les Cours Hermès</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+body {
+  font-family:'DM Sans',sans-serif;
+  background:#111;
+  min-height:100vh;
+  padding:3rem 2rem 5rem;
+}
+
+/* ── PAGE TITLE ── */
+.sim-title { text-align:center; margin-bottom:3rem; }
+.sim-title h1 { font-family:'Playfair Display',serif; font-size:1.9rem; color:#fff; margin-bottom:0.35rem; }
+.sim-title p { color:#555; font-size:0.72rem; letter-spacing:0.14em; text-transform:uppercase; }
+
+/* ── PHONE SHELL ── */
+.screens-row { display:flex; gap:2rem; justify-content:center; align-items:flex-start; flex-wrap:wrap; }
+.phone-wrap { display:flex; flex-direction:column; align-items:center; gap:0.8rem; }
+.phone-label { font-size:0.65rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:#444; }
+.phone {
+  width:350px; height:750px;
+  background:#1c1c1e;
+  border-radius:50px; padding:10px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 40px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.08);
+  position:relative; flex-shrink:0;
+}
+/* Dynamic Island */
+.phone::before {
+  content:''; position:absolute;
+  top:10px; left:50%; transform:translateX(-50%);
+  width:95px; height:26px;
+  background:#1c1c1e;
+  border-radius:0 0 20px 20px;
+  z-index:10;
+}
+.phone-inner {
+  width:100%; height:100%;
+  border-radius:42px; overflow:hidden;
+  position:relative; background:#f0f4f8;
+}
+
+/* ══════════════════════════════════
+   CSS EXACT DE L'APP — écrans login
+══════════════════════════════════ */
+
+/* edu-split : fond background.png + overlay */
+.edu-split {
+  width:100%; height:100%;
+  background: url('background.png') center/cover no-repeat, linear-gradient(155deg,#0a2e14 0%,#134d22 50%,#0b3518 100%);
+  position:relative;
+  display:flex; align-items:stretch;
+}
+.edu-split::before {
+  content:''; position:absolute; inset:0;
+  background:rgba(0,0,0,0.22); z-index:0; pointer-events:none;
+}
+/* Points déco haut droite */
+.edu-split::after {
+  content:''; position:absolute; top:18px; right:18px;
+  width:90px; height:90px;
+  background-image:radial-gradient(circle 1.5px,rgba(255,255,255,0.22) 1.5px,transparent 0);
+  background-size:14px 14px; z-index:0; pointer-events:none;
+}
+
+/* Sur mobile: edu-left caché, edu-right = pleine largeur */
+.edu-left { display:none; }
+.edu-right {
+  width:100%; display:flex; flex-direction:column;
+  align-items:center; justify-content:flex-start;
+  padding:2rem 1.25rem 1.5rem;
+  position:relative; z-index:1; min-height:100%;
+  overflow-y:auto;
+}
+
+/* La vraie carte blanche */
+.edu-login-card {
+  background:#fff; border-radius:20px;
+  padding:2rem 1.75rem;
+  width:100%; max-width:100%;
+  box-shadow:0 20px 60px rgba(0,0,0,0.22);
+}
+
+/* Logo */
+.edu-right-logo {
+  width:80px; height:80px; border-radius:50%;
+  object-fit:cover; object-position:center;
+  display:block; margin:0 auto 1.2rem;
+  border:3px solid rgba(22,101,52,0.2);
+  box-shadow:0 8px 24px rgba(22,101,52,0.18);
+}
+.edu-right-logo-fallback {
+  width:80px; height:80px; border-radius:50%;
+  background:linear-gradient(135deg,#166534,#16A34A);
+  display:flex; align-items:center; justify-content:center;
+  margin:0 auto 1.2rem;
+  font-family:'Playfair Display',serif; font-size:1.8rem; font-weight:900; color:#fff;
+}
+
+/* Titres */
+.edu-form-title {
+  font-family:'DM Sans',sans-serif; font-size:1.35rem; font-weight:800;
+  color:#1E293B; text-align:center; margin-bottom:0.25rem;
+}
+.edu-form-sub { color:#6B7280; font-size:0.82rem; text-align:center; margin-bottom:1.5rem; }
+
+/* Champ input */
+.edu-field-label { display:block; font-size:0.82rem; font-weight:700; color:#1E293B; margin-bottom:0.4rem; }
+.edu-field { position:relative; margin-bottom:0.9rem; }
+.edu-field-icon {
+  position:absolute; left:14px; top:50%; transform:translateY(-50%);
+  color:#166534; font-size:1rem; pointer-events:none; display:flex; align-items:center;
+}
+.edu-input {
+  width:100%; padding:0.82rem 1rem 0.82rem 2.6rem;
+  border:1.5px solid #E5E7EB; border-radius:10px;
+  font-family:'DM Sans',sans-serif; font-size:0.9rem; color:#1E293B;
+  background:#F9FAFB; outline:none;
+}
+.edu-input.focused {
+  border-color:#166534; background:#fff;
+  box-shadow:0 0 0 3px rgba(22,101,52,0.1);
+}
+.edu-input::placeholder { color:#9CA3AF; }
+
+/* Bouton principal vert */
+.edu-btn-primary {
+  width:100%; padding:0.9rem;
+  background:#166534; color:#fff; border:none; border-radius:10px;
+  font-family:'DM Sans',sans-serif; font-size:0.95rem; font-weight:700;
+  cursor:pointer; box-shadow:0 4px 16px rgba(22,101,52,0.35);
+  margin-bottom:0.9rem; display:flex; align-items:center; justify-content:center; gap:0.55rem;
+}
+/* Bouton secondaire (outline) */
+.edu-btn-social {
+  width:100%; padding:0.8rem;
+  background:#fff; border:1.5px solid #D1D5DB; border-radius:10px;
+  font-family:'DM Sans',sans-serif; font-size:0.88rem; font-weight:600; color:#166534;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.55rem;
+  margin-bottom:0.5rem;
+}
+
+/* Session resume box */
+.edu-session-resume {
+  background:#F0FDF4; border:1.5px solid #BBF7D0; border-radius:10px;
+  padding:0.9rem 1.1rem; margin-bottom:1.2rem;
+}
+.edu-session-resume p { font-size:0.84rem; color:#166534; margin-bottom:0.65rem; }
+
+/* Footer */
+.edu-login-footer {
+  text-align:center; color:rgba(255,255,255,0.42);
+  font-size:0.72rem; margin-top:1rem; flex-shrink:0;
+}
+
+/* Lien discret accès personnel */
+.access-link {
+  background:none; border:none; cursor:pointer;
+  color:#9CA3AF; font-size:0.72rem;
+  font-family:'DM Sans',sans-serif;
+  display:inline-flex; align-items:center; gap:0.3rem;
+  padding:0.35rem 0.65rem; border-radius:6px;
+  margin-top:1.5rem;
+}
+
+/* ── Stepper 3 étapes ── */
+.reg-stepper {
+  display:flex; align-items:center;
+  margin-bottom:1.25rem;
+}
+.reg-step-item { display:flex; flex-direction:column; align-items:center; gap:0.3rem; }
+.reg-step-dot {
+  width:30px; height:30px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:0.78rem; font-weight:800;
+  background:#E2E8F0; color:#94A3B8; border:2px solid #E2E8F0;
+}
+.reg-step-dot.active { background:#16A34A; color:#fff; border-color:#16A34A; }
+.reg-step-dot.done   { background:#DCFCE7; color:#16A34A; border-color:#86EFAC; }
+.reg-step-label { font-size:0.68rem; font-weight:600; color:#94A3B8; white-space:nowrap; }
+.reg-step-label.active { color:#16A34A; }
+.reg-step-label.done   { color:#64748B; }
+.reg-step-line { flex:1; height:2px; background:#E2E8F0; margin:0 0.4rem; margin-bottom:1.1rem; }
+.reg-step-line.done { background:#86EFAC; }
+
+/* ── Promo select item ── */
+.promo-select-grid { display:flex; flex-direction:column; gap:0.5rem; margin-bottom:0; }
+.promo-select-item {
+  display:flex; align-items:center; gap:0.8rem;
+  padding:0.8rem 0.95rem; border-radius:14px;
+  border:1.5px solid #E2E8F0; background:#fff; cursor:pointer;
+  text-align:left; width:100%;
+}
+.promo-select-item.selected {
+  border-color:#16A34A; background:#F0FDF4;
+  box-shadow:0 0 0 3px rgba(22,163,74,0.12);
+}
+.promo-select-item-avatar {
+  width:40px; height:40px; border-radius:12px; flex-shrink:0;
+  background:linear-gradient(135deg,rgba(6,38,20,0.85),rgba(15,80,40,0.80)), url('background.png') center/cover;
+  display:flex; align-items:center; justify-content:center;
+  color:#4ADE80; font-size:1.1rem;
+}
+.promo-select-item-name { font-size:0.85rem; font-weight:700; color:#1E293B; }
+.promo-select-item-meta { font-size:0.72rem; color:#94A3B8; margin-top:2px; }
+.promo-select-item-check {
+  margin-left:auto; width:20px; height:20px; border-radius:50%;
+  background:#16A34A; display:flex; align-items:center; justify-content:center;
+  color:#fff; font-size:0.68rem; flex-shrink:0;
+}
+
+/* ── Résumé promo (étape 2) ── */
+.reg-promo-summary {
+  display:flex; align-items:center; gap:0.7rem;
+  background:#F0FDF4; border:1px solid #BBF7D0; border-radius:12px;
+  padding:0.7rem 0.95rem; margin-bottom:1rem;
+}
+.reg-promo-summary-icon {
+  width:34px; height:34px; border-radius:10px; flex-shrink:0;
+  background:linear-gradient(135deg,#16A34A,#15803D);
+  display:flex; align-items:center; justify-content:center; color:#fff;
+}
+.reg-promo-summary-name { font-size:0.82rem; font-weight:700; color:#15803D; }
+.reg-promo-summary-sub  { font-size:0.7rem; color:#4ADE80; margin-top:1px; }
+.reg-change-btn {
+  margin-left:auto; font-size:0.7rem; font-weight:600; color:#15803D;
+  background:none; border:none; cursor:pointer; text-decoration:underline;
+  text-underline-offset:2px;
+}
+
+/* Hint texte sous input */
+.field-hint { font-size:0.7rem; color:#94A3B8; margin-top:-0.6rem; margin-bottom:0.8rem; }
+
+/* ── OTP ── */
+.otp-phone-badge {
+  display:inline-flex; align-items:center; gap:0.45rem;
+  background:#E8F5E9; border:1px solid #A5D6A7; border-radius:50px;
+  padding:0.38rem 0.9rem; font-size:0.76rem; color:#075E54;
+  margin-bottom:0.8rem;
+}
+.otp-sms-box { background:#F8FAFC; border:1px solid #E2E8F0; border-radius:14px; overflow:hidden; margin-bottom:0.75rem; }
+.otp-sms-header {
+  display:flex; align-items:center; gap:0.45rem;
+  background:#075E54; color:rgba(255,255,255,0.85);
+  font-size:0.7rem; font-weight:600; padding:0.48rem 0.85rem; letter-spacing:0.04em;
+}
+.otp-sms-body { padding:0.8rem 0.95rem; font-size:0.8rem; color:#334155; line-height:1.6; }
+.otp-code-highlight { font-size:1.1rem; font-weight:900; color:#16A34A; letter-spacing:0.15em; font-family:'Courier New',monospace; }
+.otp-inputs { display:flex; align-items:center; justify-content:center; gap:0.45rem; margin-bottom:0.5rem; }
+.otp-box {
+  width:40px; height:50px; border-radius:12px;
+  border:2px solid #E2E8F0; background:#F8FAFC;
+  font-size:1.4rem; font-weight:800; text-align:center;
+  color:#1E293B; font-family:'Courier New',monospace; outline:none;
+}
+.otp-box.filled { border-color:#86EFAC; background:#F0FDF4; color:#15803D; }
+.otp-box.focused { border-color:#16A34A; background:#fff; box-shadow:0 0 0 3px rgba(22,163,74,0.15); }
+.otp-sep { font-size:1.1rem; color:#CBD5E1; font-weight:700; }
+.otp-error { font-size:0.76rem; color:#EF4444; text-align:center; margin-bottom:0.5rem; }
+.otp-row-btns { display:flex; gap:0.5rem; margin-top:0.5rem; }
+.otp-row-btns .edu-btn-social { flex:1; margin-bottom:0; font-size:0.8rem; padding:0.65rem; }
+
+/* ══════════════════════════════════
+   CSS DASHBOARD ÉTUDIANT — bleu
+══════════════════════════════════ */
+.sc-dash {
+  width:100%; height:100%;
+  background:#F0F4F8;
+  display:flex; flex-direction:column;
+  position:relative;
+}
+.dash-header {
+  background:linear-gradient(135deg,#0D47A1 0%,#1565C0 100%);
+  padding:48px 14px 12px;
+  display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
+}
+.dash-hdr-left { display:flex; align-items:center; gap:0.55rem; }
+.dash-hdr-logo {
+  width:32px; height:32px; border-radius:9px;
+  background:rgba(255,255,255,0.18);
+  display:flex; align-items:center; justify-content:center;
+}
+.dash-hdr-title { font-size:0.78rem; font-weight:700; color:#fff; letter-spacing:0.01em; }
+.dash-avatar {
+  width:30px; height:30px; border-radius:50%;
+  background:rgba(255,255,255,0.18); border:2px solid rgba(255,255,255,0.45);
+  display:flex; align-items:center; justify-content:center;
+  font-size:0.6rem; font-weight:800; color:#fff;
+}
+.dash-notif {
+  width:30px; height:30px; border-radius:8px;
+  background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.18);
+  display:flex; align-items:center; justify-content:center;
+  margin-right:0.3rem;
+}
+.dash-body {
+  flex:1; overflow-y:auto;
+  padding:0.9rem 13px 70px;
+  display:flex; flex-direction:column; gap:0.82rem;
+}
+/* Welcome card — bordure verte #16A34A */
+.dash-welcome {
+  background:#fff; border-radius:16px;
+  padding:1rem 1.1rem; border-left:4px solid #16A34A;
+  box-shadow:0 2px 12px rgba(13,71,161,0.07);
+}
+.dash-welcome-tag {
+  font-size:0.6rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase;
+  color:#16A34A; display:flex; align-items:center; gap:0.28rem; margin-bottom:0.38rem;
+}
+.dash-welcome-name { font-family:'Playfair Display',serif; font-size:0.98rem; font-weight:700; color:#0D47A1; }
+.dash-welcome-sub { font-size:0.68rem; color:#64748B; margin-top:0.12rem; }
+
+/* Widgets stats */
+.dash-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.5rem; }
+.dash-stat {
+  background:#fff; border-radius:14px; padding:0.78rem 0.5rem;
+  box-shadow:0 2px 8px rgba(0,0,0,0.05);
+  display:flex; flex-direction:column; align-items:center; gap:0.38rem;
+}
+.dash-stat-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1rem; }
+.dash-stat-num { font-size:1.4rem; font-weight:800; line-height:1; }
+.dash-stat-lbl { font-size:0.58rem; color:#94A3B8; font-weight:600; text-align:center; line-height:1.3; }
+
+.s-title { font-size:0.72rem; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:0.4rem; }
+.s-line  { flex:1; height:1px; background:#E2E8F0; }
+
+/* Quick access */
+.dash-quick { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
+.dash-quick-btn {
+  background:#fff; border-radius:13px; padding:0.8rem 0.75rem;
+  box-shadow:0 2px 8px rgba(0,0,0,0.05);
+  display:flex; align-items:center; gap:0.5rem;
+}
+.dash-quick-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0; }
+.dash-quick-label { font-size:0.73rem; font-weight:700; color:#1e293b; }
+.dash-quick-sub   { font-size:0.6rem; color:#94A3B8; margin-top:0.08rem; }
+
+/* Bottom nav */
+.bottom-nav {
+  position:absolute; bottom:0; left:0; right:0; height:64px;
+  background:#fff; border-top:1px solid #E2E8F0;
+  display:flex; align-items:center; justify-content:space-around;
+  box-shadow:0 -4px 14px rgba(0,0,0,0.05);
+}
+.nav-item { display:flex; flex-direction:column; align-items:center; gap:0.2rem; flex:1; padding:0.38rem 0; }
+.nav-lbl  { font-size:0.56rem; font-weight:600; color:#94A3B8; }
+.nav-lbl.on { color:#0D47A1; }
+.nav-dot { width:4px; height:4px; border-radius:50%; background:#0D47A1; }
+
+/* ══════════════════════════════════
+   CSS COURS & EXERCICES — bleu
+══════════════════════════════════ */
+.sc-courses {
+  width:100%; height:100%; background:#F0F4F8;
+  display:flex; flex-direction:column; position:relative;
+}
+.courses-hdr {
+  background:linear-gradient(135deg,#0D47A1,#1565C0);
+  padding:48px 14px 12px; flex-shrink:0;
+}
+.courses-hdr-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.7rem; }
+.hdr-back {
+  width:28px; height:28px; border-radius:8px;
+  background:rgba(255,255,255,0.15);
+  display:flex; align-items:center; justify-content:center;
+}
+.hdr-title { font-family:'Playfair Display',serif; font-size:0.92rem; color:#fff; font-weight:700; }
+.hdr-badge { background:rgba(255,255,255,0.2); color:#fff; border-radius:50px; padding:0.15rem 0.55rem; font-size:0.66rem; font-weight:700; }
+.tour-tabs { display:flex; gap:0.38rem; }
+.ttab { flex:1; padding:0.4rem 0; border-radius:9px; font-size:0.65rem; font-weight:700; text-align:center; cursor:pointer; }
+.ttab.on  { background:rgba(255,255,255,0.22); color:#fff; }
+.ttab.off { background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.48); }
+
+.courses-body { flex:1; overflow-y:auto; padding:0.82rem 13px 70px; display:flex; flex-direction:column; gap:0.65rem; }
+.tour-card { background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.06); }
+.tour-card-hdr { padding:0.75rem 0.92rem; display:flex; align-items:center; gap:0.55rem; }
+.tour-card-icon { width:30px; height:30px; border-radius:8px; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.tour-card-title { font-weight:800; font-size:0.8rem; color:#fff; }
+.tour-card-sub   { font-size:0.62rem; color:rgba(255,255,255,0.68); }
+.tour-card-count { margin-left:auto; background:rgba(255,255,255,0.25); color:#fff; border-radius:50px; padding:0.1rem 0.48rem; font-size:0.68rem; font-weight:800; flex-shrink:0; }
+.tour-list { padding:0.52rem; display:flex; flex-direction:column; gap:0.38rem; }
+.course-row { display:flex; align-items:center; gap:0.55rem; padding:0.58rem 0.62rem; border-radius:9px; background:#FAFAFA; border:1px solid #F0F0F0; cursor:pointer; }
+.course-row-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:0.95rem; flex-shrink:0; }
+.course-row-name  { font-weight:700; font-size:0.76rem; color:#1e293b; }
+.course-row-badge { display:inline-block; background:#E3F2FD; color:#1565C0; border-radius:50px; padding:0.07rem 0.4rem; font-size:0.58rem; font-weight:600; margin-top:0.1rem; }
+.empty-row { text-align:center; padding:0.65rem; color:#94A3B8; font-size:0.73rem; }
+
+/* ══════════════════════════════════
+   CSS QUIZ — fond sombre doré
+══════════════════════════════════ */
+.sc-quiz {
+  width:100%; height:100%;
+  background:linear-gradient(160deg,#061225 0%,#0B1F47 52%,#0D2357 100%);
+  display:flex; flex-direction:column;
+}
+.quiz-topbar { padding:46px 14px 11px; display:flex; align-items:center; gap:0.65rem; flex-shrink:0; }
+.quiz-back { width:28px; height:28px; border-radius:8px; background:rgba(255,255,255,0.07); display:flex; align-items:center; justify-content:center; }
+.quiz-prog { flex:1; }
+.quiz-prog-bar { height:4px; background:rgba(255,255,255,0.1); border-radius:50px; overflow:hidden; margin-bottom:0.25rem; }
+.quiz-prog-fill { height:100%; width:40%; background:linear-gradient(90deg,#C9A84C,#F0D080); border-radius:50px; }
+.quiz-prog-lbl { font-size:0.58rem; color:rgba(201,168,76,0.6); font-weight:600; text-align:right; }
+.quiz-timer { width:32px; height:32px; border-radius:50%; background:rgba(201,168,76,0.1); border:2px solid rgba(201,168,76,0.28); display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:800; color:#F0D080; }
+.quiz-body { flex:1; padding:0 14px; display:flex; flex-direction:column; overflow:hidden; }
+.quiz-cat { display:inline-flex; align-items:center; gap:0.3rem; background:rgba(201,168,76,0.1); border:1px solid rgba(201,168,76,0.2); border-radius:50px; padding:0.2rem 0.65rem; font-size:0.62rem; font-weight:700; color:#F0D080; margin-bottom:0.7rem; width:fit-content; }
+.quiz-question { font-family:'Playfair Display',serif; font-size:0.92rem; color:#F6F7F9; line-height:1.55; margin-bottom:0.9rem; font-weight:600; }
+.quiz-options { display:flex; flex-direction:column; gap:0.5rem; }
+.quiz-opt { padding:0.72rem 0.85rem; border-radius:12px; background:rgba(255,255,255,0.04); border:1.5px solid rgba(255,255,255,0.08); display:flex; align-items:center; gap:0.55rem; cursor:pointer; }
+.quiz-opt.correct { background:rgba(16,185,129,0.1); border-color:rgba(16,185,129,0.32); }
+.quiz-opt.selected { background:rgba(201,168,76,0.1); border-color:rgba(201,168,76,0.38); }
+.quiz-letter { width:22px; height:22px; border-radius:6px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center; font-size:0.62rem; font-weight:800; color:rgba(201,168,76,0.8); flex-shrink:0; }
+.quiz-opt.correct .quiz-letter { background:rgba(16,185,129,0.18); color:#10B981; border-color:rgba(16,185,129,0.28); }
+.quiz-opt-text { font-size:0.76rem; color:rgba(246,247,249,0.8); line-height:1.4; }
+.quiz-footer { padding:0.7rem 14px 0.85rem; display:flex; gap:0.45rem; flex-shrink:0; }
+.quiz-skip { flex:1; padding:0.72rem; border-radius:10px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09); color:rgba(246,247,249,0.58); font-size:0.78rem; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; }
+.quiz-next { flex:2; padding:0.72rem; border-radius:10px; background:linear-gradient(135deg,#C9A84C,#F0D080); border:none; color:#061225; font-size:0.82rem; font-weight:800; font-family:'DM Sans',sans-serif; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.38rem; }
+
+/* ══════════════════════════════════
+   CSS RÉSULTATS — fond sombre doré
+══════════════════════════════════ */
+.sc-results {
+  width:100%; height:100%;
+  background:linear-gradient(160deg,#061225 0%,#0B1F47 52%,#0D2357 100%);
+  display:flex; flex-direction:column; align-items:center;
+  overflow-y:auto; padding:48px 18px 22px; gap:0;
+}
+.res-trophy { font-size:3rem; margin-bottom:0.4rem; filter:drop-shadow(0 4px 10px rgba(201,168,76,0.42)); }
+.res-title { font-family:'Playfair Display',serif; font-size:1.1rem; color:#F0D080; font-weight:700; text-align:center; margin-bottom:0.18rem; }
+.res-sub { font-size:0.68rem; color:rgba(166,180,200,0.62); text-align:center; margin-bottom:1.15rem; }
+.res-circle { width:108px; height:108px; border-radius:50%; background:conic-gradient(#C9A84C 0% 72%, rgba(255,255,255,0.07) 72% 100%); display:flex; align-items:center; justify-content:center; margin-bottom:1.1rem; box-shadow:0 0 0 5px rgba(201,168,76,0.08),0 8px 26px rgba(201,168,76,0.16); }
+.res-circle-inner { width:86px; height:86px; border-radius:50%; background:#061225; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.res-pct { font-family:'Playfair Display',serif; font-size:1.55rem; font-weight:700; color:#F0D080; line-height:1; }
+.res-pct-lbl { font-size:0.56rem; color:rgba(201,168,76,0.5); font-weight:600; }
+.res-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.48rem; width:100%; margin-bottom:0.9rem; }
+.res-stat { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:0.65rem 0.45rem; text-align:center; }
+.res-stat-num { font-size:1.1rem; font-weight:800; line-height:1; }
+.res-stat-lbl { font-size:0.56rem; color:rgba(166,180,200,0.58); margin-top:0.15rem; }
+.res-pts { background:rgba(201,168,76,0.08); border:1px solid rgba(201,168,76,0.2); border-radius:10px; padding:0.6rem 0.9rem; width:100%; display:flex; align-items:center; justify-content:space-between; margin-bottom:0.82rem; }
+.res-pts-lbl { font-size:0.72rem; color:rgba(201,168,76,0.62); font-weight:600; }
+.res-pts-val { font-family:'Playfair Display',serif; font-size:1.05rem; color:#F0D080; font-weight:700; }
+.res-btns { display:flex; flex-direction:column; gap:0.48rem; width:100%; }
+.res-btn-main { width:100%; padding:0.8rem; border-radius:12px; border:none; background:linear-gradient(135deg,#C9A84C,#F0D080); color:#061225; font-size:0.85rem; font-weight:800; font-family:'DM Sans',sans-serif; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.38rem; }
+.res-btn-sec  { width:100%; padding:0.72rem; border-radius:12px; background:rgba(255,255,255,0.04); border:1.5px solid rgba(255,255,255,0.09); color:rgba(246,247,249,0.68); font-size:0.8rem; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; }
+
+svg { display:block; }
+</style>
+</head>
+<body>
+
+<div class="sim-title">
+  <h1>Les Cours Hermès</h1>
+  <p>Simulation Mobile · Reproduction exacte de l'app web</p>
+</div>
+
+<div class="screens-row">
+
+<!-- ════════════════════════
+     PHONE 1 — WELCOME
+     Carte blanche, 1 bouton vert
+     Footer blanc transparent
+════════════════════════ -->
+<div class="phone-wrap">
+  <div class="phone">
+    <div class="phone-inner">
+      <div class="edu-split">
+        <div class="edu-right">
+          <div class="edu-login-card">
+
+            <!-- Logo (fallback vert si image absente) -->
+            <img src="logo.jpeg" alt="Les Cours Hermès" class="edu-right-logo"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="edu-right-logo-fallback" style="display:none;">H</div>
+
+            <h2 class="edu-form-title">Bienvenue sur Les Cours Hermès</h2>
+            <p class="edu-form-sub">Accédez à votre espace de formation</p>
+
+            <!-- Résumé session (caché) -->
+            <!-- <div class="edu-session-resume" style="display:none;"> ... </div> -->
+
+            <div style="display:flex;flex-direction:column;gap:0.85rem;">
+              <button class="edu-btn-primary" style="margin-bottom:0;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                Connexion Apprenant
+              </button>
+            </div>
+
+            <!-- Lien discret -->
+            <div style="text-align:center;">
+              <button class="access-link">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Accès personnel autorisé
+              </button>
+            </div>
+
+          </div>
+          <p class="edu-login-footer">© 2025 Les Cours Hermès. Tous droits réservés.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="phone-label">① Accueil</div>
+</div>
+
+<!-- ════════════════════════
+     PHONE 2 — LOGIN ÉTAPE 1
+     Sélection promotion
+════════════════════════ -->
+<div class="phone-wrap">
+  <div class="phone">
+    <div class="phone-inner">
+      <div class="edu-split">
+        <div class="edu-right">
+          <div class="edu-login-card">
+
+            <img src="logo.jpeg" alt="Les Cours Hermès" class="edu-right-logo"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="edu-right-logo-fallback" style="display:none;">H</div>
+
+            <!-- Stepper — étape 1 active -->
+            <div class="reg-stepper">
+              <div class="reg-step-item">
+                <div class="reg-step-dot active">1</div>
+                <span class="reg-step-label active">Promotion</span>
+              </div>
+              <div class="reg-step-line"></div>
+              <div class="reg-step-item">
+                <div class="reg-step-dot">2</div>
+                <span class="reg-step-label">Informations</span>
+              </div>
+              <div class="reg-step-line"></div>
+              <div class="reg-step-item">
+                <div class="reg-step-dot">3</div>
+                <span class="reg-step-label">Vérification</span>
+              </div>
+            </div>
+
+            <h2 class="edu-form-title" style="margin-bottom:0.25rem;">Choisissez votre promotion</h2>
+            <p class="edu-form-sub" style="margin-bottom:1rem;">Sélectionnez la promotion dans laquelle vous êtes inscrit.</p>
+
+            <div class="promo-select-grid">
+              <!-- Promo sélectionnée -->
+              <div class="promo-select-item selected">
+                <div class="promo-select-item-avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+                <div>
+                  <div class="promo-select-item-name">Promo ENA 2025</div>
+                  <div class="promo-select-item-meta">Préparation Concours · Active · 24 places</div>
+                </div>
+                <div class="promo-select-item-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+              </div>
+              <!-- Autre promo -->
+              <div class="promo-select-item">
+                <div class="promo-select-item-avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg></div>
+                <div>
+                  <div class="promo-select-item-name">Promo ENA 2026</div>
+                  <div class="promo-select-item-meta">Préparation Concours · Active · 18 places</div>
+                </div>
+                <div class="promo-select-item-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:1rem;">
+              <button class="edu-btn-primary" style="margin-bottom:0;">Suivant →</button>
+              <button class="edu-btn-social">← Retour à l'accueil</button>
+            </div>
+
+          </div>
+          <p class="edu-login-footer">© 2025 Les Cours Hermès. Tous droits réservés.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="phone-label">② Étape 1 · Promotion</div>
+</div>
+
+<!-- ════════════════════════
+     PHONE 3 — LOGIN ÉTAPE 2
+     Nom complet + Téléphone
+════════════════════════ -->
+<div class="phone-wrap">
+  <div class="phone">
+    <div class="phone-inner">
+      <div class="edu-split">
+        <div class="edu-right">
+          <div class="edu-login-card">
+
+            <img src="logo.jpeg" alt="" class="edu-right-logo"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="edu-right-logo-fallback" style="display:none;">H</div>
+
+            <!-- Stepper — étape 2 active, 1 done -->
+            <div class="reg-stepper">
+              <div class="reg-step-item">
+                <div class="reg-step-dot done"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <span class="reg-step-label done">Promotion</span>
+              </div>
+              <div class="reg-step-line done"></div>
+              <div class="reg-step-item">
+                <div class="reg-step-dot active">2</div>
+                <span class="reg-step-label active">Informations</span>
+              </div>
+              <div class="reg-step-line"></div>
+              <div class="reg-step-item">
+                <div class="reg-step-dot">3</div>
+                <span class="reg-step-label">Vérification</span>
+              </div>
+            </div>
+
+            <!-- Résumé promo -->
+            <div class="reg-promo-summary">
+              <div class="reg-promo-summary-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14l9-5-9-5-9 5 9 5z"/><path d="M12 14l6.16-3.422a12 12 0 01.665 6.479A12 12 0 0112 20.055a12 12 0 01-6.824-2.998 12 12 0 01.665-6.479L12 14z"/></svg>
+              </div>
+              <div>
+                <div class="reg-promo-summary-name">Promo ENA 2025</div>
+                <div class="reg-promo-summary-sub">Préparation Concours · Active</div>
+              </div>
+              <button class="reg-change-btn">Changer</button>
+            </div>
+
+            <h2 class="edu-form-title" style="margin-bottom:0.2rem;">Vos informations</h2>
+            <p class="edu-form-sub" style="margin-bottom:0.85rem;">Entrez votre nom complet et votre numéro de téléphone.</p>
+
+            <!-- Nom -->
+            <label class="edu-field-label">Nom et prénom <span style="color:#EF4444;">*</span></label>
+            <div class="edu-field">
+              <span class="edu-field-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </span>
+              <input class="edu-input focused" type="text" value="KONAN KOFFI" placeholder="Ex: Aminata Coulibaly" readonly>
+            </div>
+            <p class="field-hint">Entrez votre prénom et votre nom de famille.</p>
+
+            <!-- Téléphone -->
+            <label class="edu-field-label">Numéro de téléphone <span style="color:#EF4444;">*</span></label>
+            <div class="edu-field" style="margin-bottom:0.3rem;">
+              <span class="edu-field-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.58 1.18h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 5.54 5.54l1.36-1.36a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7a2 2 0 0 1 1.72 2z"/></svg>
+              </span>
+              <input class="edu-input" type="tel" value="" placeholder="Ex: 0788816188" readonly>
+            </div>
+            <p class="field-hint" style="margin-bottom:0.9rem;">Format : 0788816188 (10 chiffres) ou +2250788816188</p>
+
+            <button class="edu-btn-primary" style="margin-bottom:0.45rem;">Recevoir le code →</button>
+            <button class="edu-btn-social">← Retour</button>
+
+          </div>
+          <p class="edu-login-footer">© 2025 Les Cours Hermès. Tous droits réservés.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="phone-label">③ Étape 2 · Informations</div>
+</div>
+
+<!-- ════════════════════════
+     PHONE 4 — LOGIN ÉTAPE 3
+     Code OTP WhatsApp
+════════════════════════ -->
+<div class="phone-wrap">
+  <div class="phone">
+    <div class="phone-inner">
+      <div class="edu-split">
+        <div class="edu-right">
+          <div class="edu-login-card">
+
+            <img src="logo.jpeg" alt="" class="edu-right-logo"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="edu-right-logo-fallback" style="display:none;">H</div>
+
+            <!-- Stepper — étape 3 active, 1+2 done -->
+            <div class="reg-stepper">
+              <div class="reg-step-item">
+                <div class="reg-step-dot done"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <span class="reg-step-label done">Promotion</span>
+              </div>
+              <div class="reg-step-line done"></div>
+              <div class="reg-step-item">
+                <div class="reg-step-dot done"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <span class="reg-step-label done">Informations</span>
+              </div>
+              <div class="reg-step-line done"></div>
+              <div class="reg-step-item">
+                <div class="reg-step-dot active">3</div>
+                <span class="reg-step-label active">Vérification</span>
+              </div>
+            </div>
+
+            <!-- Badge numéro -->
+            <div>
+              <div class="otp-phone-badge">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07"/><path d="M1.61 3.38A2 2 0 0 1 3.58 1.18h3a2 2 0 0 1 2 1.72"/></svg>
+                Code envoyé au <strong>07 888 161 88</strong>
+              </div>
+            </div>
+
+            <!-- Box WhatsApp -->
+            <div class="otp-sms-box">
+              <div class="otp-sms-header">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                WhatsApp — Les Cours Hermès
+              </div>
+              <div class="otp-sms-body">
+                Votre code de vérification est :<br>
+                <span class="otp-code-highlight">4 8 3 7 2 1</span><br>
+                <span style="font-size:0.68rem;opacity:0.65;">Ce code expire dans 10 minutes.</span>
+              </div>
+            </div>
+
+            <h2 class="edu-form-title" style="margin-bottom:0.2rem;font-size:1.1rem;margin-top:0.5rem;">Entrez le code</h2>
+            <p class="edu-form-sub" style="margin-bottom:0.75rem;font-size:0.78rem;">Saisissez le code à 6 chiffres reçu.</p>
+
+            <!-- OTP inputs -->
+            <div class="otp-inputs">
+              <input class="otp-box filled" type="text" value="4" maxlength="1" readonly>
+              <input class="otp-box filled" type="text" value="8" maxlength="1" readonly>
+              <input class="otp-box filled" type="text" value="3" maxlength="1" readonly>
+              <span class="otp-sep">—</span>
+              <input class="otp-box focused" type="text" value="" maxlength="1" readonly>
+              <input class="otp-box" type="text" value="" maxlength="1" readonly>
+              <input class="otp-box" type="text" value="" maxlength="1" readonly>
+            </div>
+
+            <button class="edu-btn-primary" style="margin-top:0.9rem;margin-bottom:0;">Vérifier et accéder →</button>
+            <div class="otp-row-btns">
+              <button class="edu-btn-social">← Modifier</button>
+              <button class="edu-btn-social">Renvoyer</button>
+            </div>
+
+          </div>
+          <p class="edu-login-footer">© 2025 Les Cours Hermès. Tous droits réservés.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="phone-label">④ Étape 3 · Code OTP</div>
+</div>
+
+<!-- ════════════════════════
+     PHONE 5 — TABLEAU DE BORD
+     Header bleu, stats, accès rapide
+════════════════════════ -->
+<div class="phone-wrap">
+  <div class="phone">
+    <div class="phone-inner">
+      <div class="sc-dash">
+        <div class="dash-header">
+          <div class="dash-hdr-left">
+            <div class="dash-hdr-logo">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+            </div>
+            <span class="dash-hdr-title">VOTRE ESPACE ETUDIANT</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.35rem;">
+            <div class="dash-notif">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            </div>
+            <div class="dash-avatar">KK</div>
+          </div>
+        </div>
+
+        <div class="dash-body">
+          <div class="dash-welcome">
+            <div class="dash-welcome-tag">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              BIENVENUE
+            </div>
+            <div class="dash-welcome-name" style="display:flex;align-items:center;gap:0.35rem;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0D47A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg> Bon retour, KONAN KOFFI !</div>
+            <div class="dash-welcome-sub">Continuez votre apprentissage et atteignez vos objectifs.</div>
+          </div>
+
+          <div class="dash-stats">
+            <div class="dash-stat">
+              <div class="dash-stat-icon" style="background:#EFF6FF;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0D47A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+              <div class="dash-stat-num" style="color:#0D47A1;">2</div>
+              <div class="dash-stat-lbl">Cours disponibles</div>
+            </div>
+            <div class="dash-stat">
+              <div class="dash-stat-icon" style="background:#ECFDF5;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div>
+              <div class="dash-stat-num" style="color:#059669;">0</div>
+              <div class="dash-stat-lbl">Vidéos de cours</div>
+            </div>
+            <div class="dash-stat">
+              <div class="dash-stat-icon" style="background:#FFF7ED;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+              <div class="dash-stat-num" style="color:#EA580C;">1</div>
+              <div class="dash-stat-lbl">Types d'exercices</div>
+            </div>
+          </div>
+
+          <div class="s-title">Accès rapide <div class="s-line"></div></div>
+          <div class="dash-quick">
+            <div class="dash-quick-btn">
+              <div class="dash-quick-icon" style="background:#EFF6FF;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0D47A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+              <div><div class="dash-quick-label">Mes Cours</div><div class="dash-quick-sub">2 disponibles</div></div>
+            </div>
+            <div class="dash-quick-btn">
+              <div class="dash-quick-icon" style="background:#FFF5F5;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+              <div><div class="dash-quick-label">Exercices</div><div class="dash-quick-sub">LOGIQUE</div></div>
+            </div>
+            <div class="dash-quick-btn">
+              <div class="dash-quick-icon" style="background:#FFF7ED;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div>
+              <div><div class="dash-quick-label">Capsules</div><div class="dash-quick-sub">Vidéo</div></div>
+            </div>
+            <div class="dash-quick-btn">
+              <div class="dash-quick-icon" style="background:#F5F3FF;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+              <div><div class="dash-quick-label">Résultats</div><div class="dash-quick-sub">0 pts</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0D47A1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" fill="#0D47A1" stroke="none"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+            <span class="nav-lbl on">Tableau</span><div class="nav-dot"></div>
+          </div>
+          <div class="nav-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            <span class="nav-lbl">Cours</span>
+          </div>
+          <div class="nav-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span class="nav-lbl">Exercices</span>
+          </div>
+          <div class="nav-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            <span class="nav-lbl">Vidéos</span>
+          </div>
+          <div class="nav-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span class="nav-lbl">Profil</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="phone-label">⑤ Tableau de bord</div>
+</div>
+
+<!-- ════════════════════════
+     PHONE 6 — MES COURS
+     3 widgets tour bleu/vert/rouge
+════════════════════════ -->
+<div class="phone-wrap">
+  <div class="phone">
+    <div class="phone-inner">
+      <div class="sc-courses">
+        <div class="courses-hdr">
+          <div class="courses-hdr-top">
+            <div class="hdr-back"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+            <span class="hdr-title">Mes Cours</span>
+            <span class="hdr-badge">2 cours</span>
+          </div>
+          <div class="tour-tabs">
+            <div class="ttab on">1er Tour</div>
+            <div class="ttab off">2ème Tour</div>
+            <div class="ttab off">3ème Tour</div>
+          </div>
+        </div>
+
+        <div class="courses-body">
+          <!-- Tour 1 — Bleu #0D47A1 -->
+          <div class="tour-card">
+            <div class="tour-card-hdr" style="background:linear-gradient(135deg,#0D47A1,#1976D2);">
+              <div class="tour-card-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+              <div><div class="tour-card-title">1er Tour</div><div class="tour-card-sub">Supports de cours</div></div>
+              <div class="tour-card-count">2</div>
+            </div>
+            <div class="tour-list">
+              <div class="course-row">
+                <div class="course-row-icon" style="background:#EFF6FF;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0D47A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg></div>
+                <div><div class="course-row-name">Droit Administratif</div><span class="course-row-badge"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</span></div>
+                <span style="margin-left:auto;color:#94A3B8;font-size:1rem;">›</span>
+              </div>
+              <div class="course-row">
+                <div class="course-row-icon" style="background:#EFF6FF;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0D47A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg></div>
+                <div><div class="course-row-name">Droit Constitutionnel</div><span class="course-row-badge"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</span></div>
+                <span style="margin-left:auto;color:#94A3B8;font-size:1rem;">›</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tour 2 — Vert #00897B -->
+          <div class="tour-card">
+            <div class="tour-card-hdr" style="background:linear-gradient(135deg,#00897B,#00C853);">
+              <div class="tour-card-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
+              <div><div class="tour-card-title">2ème Tour</div><div class="tour-card-sub">Rédaction</div></div>
+              <div class="tour-card-count">0</div>
+            </div>
+            <div class="tour-list"><div class="empty-row">Aucun cours du 2ème tour.</div></div>
+          </div>
+
+          <!-- Tour 3 — Rouge #C62828 -->
+          <div class="tour-card">
+            <div class="tour-card-hdr" style="background:linear-gradient(135deg,#C62828,#E53935);">
+              <div class="tour-card-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div>
+              <div><div class="tour-card-title">3ème Tour</div><div class="tour-card-sub">Capsules Vidéo</div></div>
+              <div class="tour-card-count">0</div>
+            </div>
+            <div class="tour-list"><div class="empty-row">Aucun contenu du 3ème tour.</div></div>
+          </div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="nav-lbl">Tableau</span></div>
+          <div class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0D47A1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="#0D47A1"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" fill="#EFF6FF" stroke="#0D47A1"/></svg><span class="nav-lbl on">Cours</span><div class="nav-dot"></div></div>
+          <div class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span class="nav-lbl">Exercices</span></div>
+          <div class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg><span class="nav-lbl">Vidéos</span></div>
+          <div class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="nav-lbl">Profil</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="phone-label">⑥ Mes Cours</div>
+</div>
+
+<!-- ════════════════════════
+     PHONE 7 — QUIZ
+     Fond #061225, doré #C9A84C
+════════════════════════ -->
+<div class="phone-wrap">
+  <div class="phone">
+    <div class="phone-inner">
+      <div class="sc-quiz">
+        <div class="quiz-topbar">
+          <div class="quiz-back"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+          <div class="quiz-prog">
+            <div class="quiz-prog-bar"><div class="quiz-prog-fill"></div></div>
+            <div class="quiz-prog-lbl">Question 2 / 5</div>
+          </div>
+          <div class="quiz-timer">28</div>
+        </div>
+
+        <div class="quiz-body">
+          <div class="quiz-cat"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F0D080" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg> Droit Administratif</div>
+          <div class="quiz-question">
+            Quelle est la principale caractéristique du service public en droit administratif ivoirien ?
+          </div>
+          <div class="quiz-options">
+            <div class="quiz-opt">
+              <div class="quiz-letter">A</div>
+              <div class="quiz-opt-text">La recherche du profit économique</div>
+            </div>
+            <div class="quiz-opt correct">
+              <div class="quiz-letter">B</div>
+              <div class="quiz-opt-text">La satisfaction de l'intérêt général sous contrôle de l'État</div>
+            </div>
+            <div class="quiz-opt selected">
+              <div class="quiz-letter">C</div>
+              <div class="quiz-opt-text">La gestion par les collectivités locales uniquement</div>
+            </div>
+            <div class="quiz-opt">
+              <div class="quiz-letter">D</div>
+              <div class="quiz-opt-text">L'exclusion de tout financement public</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="quiz-footer">
+          <button class="quiz-skip">Passer</button>
+          <button class="quiz-next">Question suivante <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="phone-label">⑦ Quiz</div>
+</div>
+
+</div><!-- /screens-row -->
+
+<div style="text-align:center;margin-top:3rem;">
+  <p style="color:#333;font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;">
+    LES COURS HERMÈS · SIMULATION MOBILE · REPRODUCTION EXACTE DE L'APP WEB
+  </p>
+</div>
+
+</body>
+</html>
