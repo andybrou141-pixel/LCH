@@ -497,6 +497,9 @@ function handlePeerData(data) {
     if (area) area.classList.remove('active');
     if (vw)   vw.style.display = '';
     renderLiveDocsList();
+  } else if (data.type === 'wb-seg') {
+    // Segment en temps réel : dessiner immédiatement sans attendre la fin du trait
+    if (data.seg) _receiveWbSeg(data.seg);
   } else if (data.type === 'wb-stroke') {
     if (data.stroke) _receiveWbStroke(data.stroke);
   } else if (data.type === 'wb-init') {
@@ -504,9 +507,7 @@ function handlePeerData(data) {
     if (wbState.strokes.length) {
       const canvas = document.getElementById('live-whiteboard-canvas');
       if (canvas) {
-        const area = document.getElementById('live-video-area');
-        if (area) { canvas.width = area.offsetWidth; canvas.height = area.offsetHeight; }
-        canvas.classList.add('active', 'view-only');
+        _ensureWbCanvas(canvas);
         _redrawWb();
       }
     }
@@ -518,9 +519,7 @@ function handlePeerData(data) {
     const canvas = document.getElementById('live-whiteboard-canvas');
     if (!canvas) return;
     if (data.active) {
-      const area = document.getElementById('live-video-area');
-      if (area) { canvas.width = area.offsetWidth; canvas.height = area.offsetHeight; }
-      canvas.classList.add('active', 'view-only');
+      _ensureWbCanvas(canvas);
       _redrawWb();
     } else {
       canvas.classList.remove('active', 'view-only');
@@ -2018,8 +2017,21 @@ function liveToggleWhiteboard() {
   if (canvas)  canvas.classList.toggle('active', wbState.active);
   if (toolbar) toolbar.classList.toggle('active', wbState.active);
   updateLiveControls();
-  // Initier ou redimensionner le canvas
+  // Initier ou redimensionner le canvas (toujours recalculer les dimensions)
   if (wbState.active) _initWbCanvas();
+  // Écouter les redimensionnements de fenêtre pour adapter le canvas
+  if (wbState.active && !window._wbResizeListener) {
+    window._wbResizeListener = () => {
+      if (!wbState.active) return;
+      const c = document.getElementById('live-whiteboard-canvas');
+      const a = document.getElementById('live-video-area');
+      if (c && a && a.offsetWidth > 0) { c.width = a.offsetWidth; c.height = a.offsetHeight; _redrawWb(); }
+    };
+    window.addEventListener('resize', window._wbResizeListener);
+  } else if (!wbState.active && window._wbResizeListener) {
+    window.removeEventListener('resize', window._wbResizeListener);
+    window._wbResizeListener = null;
+  }
   // Diffuser aux étudiants
   Object.values(liveState.connections).forEach(conn => {
     try { conn.send({ type: 'wb-toggle', active: wbState.active }); } catch(e) {}
@@ -2086,6 +2098,14 @@ function _wbMove(e) {
 
   wbState.lastPt = pt;
   wbState.currentStroke.push(pt);
+
+  // Diffuser en temps réel : envoyer le segment à chaque mouvement
+  // → les étudiants voient le trait immédiatement, pas seulement à la fin
+  const seg = { from: last, to: pt, color: wbState.color, size: wbState.size, tool: wbState.tool };
+  Object.values(liveState.connections).forEach(conn => {
+    try { conn.send({ type: 'wb-seg', seg }); } catch(e) {}
+  });
+
   e.preventDefault();
 }
 
@@ -2143,7 +2163,8 @@ function _drawWbStroke(ctx, canvas, stroke) {
 
 function _drawWbText(ctx, canvas, item) {
   const fontSize = Math.max(14, item.size || 24);
-  ctx.font = '600 ' + fontSize + 'px \'DM Sans\', sans-serif';
+  // Police avec fallbacks larges pour garantir le rendu même sans DM Sans chargé
+  ctx.font = '600 ' + fontSize + 'px "DM Sans", "Helvetica Neue", Arial, sans-serif';
   ctx.fillStyle = item.color || '#ffffff';
   ctx.globalAlpha = 1.0;
   ctx.globalCompositeOperation = 'source-over';
@@ -2294,15 +2315,48 @@ function _wbHideTextInput() {
   if (overlay) overlay.remove();
 }
 
+// Garantit que le canvas étudiant est visible et dimensionné correctement
+function _ensureWbCanvas(canvas) {
+  const area = document.getElementById('live-video-area');
+  const w = area ? area.offsetWidth  : window.innerWidth;
+  const h = area ? area.offsetHeight : window.innerHeight;
+  // Redimensionner si nécessaire (0×0 ou taille changée)
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width  = w || canvas.offsetWidth  || 800;
+    canvas.height = h || canvas.offsetHeight || 600;
+  }
+  if (!canvas.classList.contains('active')) {
+    canvas.classList.add('active', 'view-only');
+  }
+}
+
+// Reçoit un segment en temps réel et le dessine immédiatement
+function _receiveWbSeg(seg) {
+  const canvas = document.getElementById('live-whiteboard-canvas');
+  if (!canvas) return;
+  _ensureWbCanvas(canvas);
+  const ctx      = canvas.getContext('2d');
+  const isEraser = seg.tool === 'eraser';
+  const isMarker = seg.tool === 'marker';
+  ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
+  ctx.strokeStyle = isEraser ? 'rgba(0,0,0,1)' : (seg.color || '#fff');
+  ctx.globalAlpha = isMarker ? 0.45 : 1.0;
+  ctx.lineWidth   = isEraser ? seg.size * 6 : (isMarker ? seg.size * 3 : seg.size);
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+  ctx.beginPath();
+  ctx.moveTo(seg.from.x * canvas.width, seg.from.y * canvas.height);
+  ctx.lineTo(seg.to.x   * canvas.width, seg.to.y   * canvas.height);
+  ctx.stroke();
+  ctx.globalAlpha = 1.0;
+  ctx.globalCompositeOperation = 'source-over';
+}
+
 function _receiveWbStroke(stroke) {
   wbState.strokes.push(stroke);
   const canvas = document.getElementById('live-whiteboard-canvas');
   if (!canvas) return;
-  if (!canvas.classList.contains('active')) {
-    const area = document.getElementById('live-video-area');
-    if (area) { canvas.width = area.offsetWidth; canvas.height = area.offsetHeight; }
-    canvas.classList.add('active', 'view-only');
-  }
+  _ensureWbCanvas(canvas);
   const ctx = canvas.getContext('2d');
   _drawWbStroke(ctx, canvas, stroke);
 }
