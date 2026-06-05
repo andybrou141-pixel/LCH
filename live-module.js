@@ -711,6 +711,7 @@ function cleanupLive() {
   clearInterval(liveState.sessionTimerInterval);
   liveState.chatPollTimer = null;
   if (liveState.jsonbinSyncTimer) { clearInterval(liveState.jsonbinSyncTimer); liveState.jsonbinSyncTimer = null; }
+  if (liveState.attendeeSaveTimer) { clearInterval(liveState.attendeeSaveTimer); liveState.attendeeSaveTimer = null; }
   liveState.presencePollTimer = null;
   liveState.sessionTimerInterval = null;
 
@@ -783,10 +784,9 @@ function handleChatKeydown(e) {
 // ══════════════════════════════════════════
 //  PRÉSENCE ÉTUDIANT
 // ══════════════════════════════════════════
-function registerStudentJoin(sessionId) {
-  const userId = auth.userId;
-  // Récupérer le vrai nom depuis appData.users (source fiable)
-  const userObj  = (appData.users || []).find(u => u.id === userId);
+async function registerStudentJoin(sessionId) {
+  const userId  = auth.userId;
+  const userObj = (appData.users || []).find(u => u.id === userId);
   const userName = userObj ? userObj.name : (auth.name || 'Étudiant');
 
   updateStudentAttendee(sessionId, userId, {
@@ -797,9 +797,10 @@ function registerStudentJoin(sessionId) {
     marked:   false,
   });
 
-  // Écrire aussi dans le pulse en ligne classique (hermes_online_<userId>)
-  // → le formateur voit l'étudiant dans sa vue Présence en temps réel
   refreshLiveOnlinePulse(sessionId, userName, userObj?.promotionId || '');
+
+  // Merge-save immédiat : fusionne notre présence avec les autres étudiants déjà connectés
+  await _saveLiveAttendeeMerge(sessionId, userId);
 }
 
 // Rafraîchit le pulse "en ligne" de l'étudiant avec la référence à la session live
@@ -825,10 +826,42 @@ function updateStudentAttendee(sessionId, userId, data) {
     if (!session) return;
     if (!session.attendees) session.attendees = {};
     session.attendees[userId] = Object.assign(session.attendees[userId] || {}, data);
-    // Sauvegarder localement et sur JSONBin
+    // Sauvegarder uniquement en local — JSONBin géré par _saveLiveAttendeeMerge
     try { localStorage.setItem("hermes_knowledge_data", JSON.stringify(appData)); } catch(e) {}
-    if (typeof _saveToJsonBin === "function") _saveToJsonBin();
   } catch(e) {}
+}
+
+// Merge-save : lit JSONBin, fusionne notre entrée, puis sauvegarde
+// → évite d'écraser les autres étudiants présents
+async function _saveLiveAttendeeMerge(sessionId, userId) {
+  try {
+    const localSession = (appData.liveSessions || []).find(s => s.id === sessionId);
+    const myAttendee  = localSession?.attendees?.[userId];
+    if (!myAttendee) return;
+
+    // Lire l'état actuel depuis JSONBin
+    const res = await fetch(JSONBIN_URL + "/latest", { headers: { "X-Master-Key": JSONBIN_KEY } });
+    if (res.ok) {
+      const json  = await res.json();
+      const fresh = json.record || json;
+      if (fresh && Array.isArray(fresh.liveSessions)) {
+        // Fusionner notre présence dans la session fraîche
+        fresh.liveSessions = fresh.liveSessions.map(s => {
+          if (s.id !== sessionId) return s;
+          const merged = Object.assign({}, s.attendees || {});
+          merged[userId] = Object.assign(merged[userId] || {}, myAttendee);
+          return Object.assign({}, s, { attendees: merged });
+        });
+        appData.liveSessions = fresh.liveSessions;
+        if (Array.isArray(fresh.users)) appData.users = fresh.users;
+        try { localStorage.setItem("hermes_knowledge_data", JSON.stringify(appData)); } catch(e) {}
+      }
+    }
+    if (typeof _saveToJsonBin === "function") _saveToJsonBin();
+  } catch(e) {
+    // En cas d'erreur réseau, sauvegarder quand même localement
+    if (typeof _saveToJsonBin === "function") _saveToJsonBin();
+  }
 }
 
 function tickStudentPresence() {
@@ -903,8 +936,7 @@ function startLiveTimers(sessionId, role) {
     updateParticipantsCountDisplay();
   }, 5000);
 
-  // Pour les étudiants : rafraîchir le pulse hermes_online_ toutes les 45 secondes
-  // (nécessaire pour que la vue Présence du formateur reste à jour)
+  // Pour les étudiants : merge-save toutes les 30s + pulse en ligne toutes les 45s
   if (role === 'student') {
     const userObj = (appData.users||[]).find(u=>u.id===auth.userId);
     refreshLiveOnlinePulse(sessionId, userObj?.name, userObj?.promotionId || '');
@@ -912,6 +944,12 @@ function startLiveTimers(sessionId, role) {
       const uObj = (appData.users||[]).find(u=>u.id===auth.userId);
       refreshLiveOnlinePulse(sessionId, uObj?.name, uObj?.promotionId || '');
     }, 45 * 1000);
+    // Merge-save périodique pour maintenir la présence dans JSONBin sans conflit
+    liveState.attendeeSaveTimer = setInterval(() => {
+      if (liveState.sessionId && auth.userId) {
+        _saveLiveAttendeeMerge(liveState.sessionId, auth.userId);
+      }
+    }, 30 * 1000);
   }
 }
 
