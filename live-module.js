@@ -435,11 +435,18 @@ async function initPeer(sessionId, role) {
   });
 }
 
-// Formateur → appel vidéo vers un étudiant identifié par son peerId data
+// Formateur → appel vidéo vers un étudiant (avec le flux actif : caméra ou écran)
 function _callStudent(studentDataPeerId) {
   if (!liveState.peer || !liveState.localStream) return;
   try {
-    const call = liveState.peer.call(studentDataPeerId, liveState.localStream);
+    // Si partage d'écran actif : envoyer écran + audio local
+    let streamToSend = liveState.localStream;
+    if (liveState.screenSharing && liveState.screenStream) {
+      const screenTracks = liveState.screenStream.getVideoTracks();
+      const audioTracks  = liveState.localStream.getAudioTracks();
+      streamToSend = new MediaStream([...screenTracks, ...audioTracks]);
+    }
+    const call = liveState.peer.call(studentDataPeerId, streamToSend);
     if (!call) return;
     liveState.calls[studentDataPeerId] = call;
     call.on('stream', (studentStream) => {
@@ -456,20 +463,58 @@ function _showTrainerStream(stream) {
   const noVid   = document.getElementById('live-no-video-msg');
   if (!mainVid) return;
   mainVid.srcObject = stream;
-  mainVid.muted = false;
   mainVid.style.display = 'block';
-  mainVid.play().catch(() => {});
   _hideTrainerPlaceholder();
   if (noVid) noVid.style.display = 'none';
-  _setSourceLabel('📹 Caméra du formateur');
+
+  // Tenter lecture avec son — si bloqué par l'autoplay, afficher bouton
+  mainVid.muted = false;
+  const p = mainVid.play();
+  if (p) {
+    p.catch(() => {
+      mainVid.muted = true;
+      mainVid.play().catch(() => {});
+      _showUnmuteOverlay();
+    });
+  }
+
+  const label = liveState.screenSharing ? '🖥️ Écran du formateur' : '📹 Caméra du formateur';
+  _setSourceLabel(label);
+}
+
+// Bouton "Activer le son" si l'autoplay audio est bloqué
+function _showUnmuteOverlay() {
+  const wrapper = document.getElementById('live-main-video-wrapper');
+  if (!wrapper || document.getElementById('live-unmute-overlay')) return;
+  const btn = document.createElement('button');
+  btn.id = 'live-unmute-overlay';
+  btn.innerHTML = '<span style="font-size:2rem;display:block;margin-bottom:0.4rem;">🔊</span>Cliquez pour activer le son';
+  btn.style.cssText = [
+    'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);',
+    'z-index:20;background:rgba(34,197,94,0.92);color:#fff;',
+    'border:none;border-radius:14px;padding:1.2rem 2rem;',
+    'font-size:0.92rem;font-weight:700;cursor:pointer;text-align:center;',
+    'box-shadow:0 4px 24px rgba(0,0,0,0.5);backdrop-filter:blur(4px);',
+    'animation:liveFadeIn 0.3s ease;',
+  ].join('');
+  btn.onclick = () => {
+    const vid = document.getElementById('live-main-video');
+    if (vid) { vid.muted = false; vid.play().catch(() => {}); }
+    btn.remove();
+  };
+  wrapper.appendChild(btn);
 }
 
 // Formateur → ajouter la vignette vidéo d'un étudiant
 function _addStudentVideoTile(peerId, stream) {
   const strip = document.getElementById('live-student-strip');
   if (!strip) return;
-  const tileId = 'live-tile-' + peerId.replace(/[^a-z0-9]/gi, '_');
+  const safeId = peerId.replace(/[^a-z0-9]/gi, '_');
+  const tileId  = 'live-tile-' + safeId;
+  const audioId = 'live-audio-' + safeId;
   if (document.getElementById(tileId)) return;
+
+  // Vignette vidéo (muette — évite la boucle audio)
   const tile = document.createElement('div');
   tile.className = 'live-student-tile';
   tile.id = tileId;
@@ -482,11 +527,25 @@ function _addStudentVideoTile(peerId, stream) {
   tile.appendChild(vid);
   strip.appendChild(tile);
   vid.play().catch(() => {});
+
+  // Élément audio séparé (formateur entend l'étudiant)
+  if (!document.getElementById(audioId)) {
+    const audio = document.createElement('audio');
+    audio.id = audioId;
+    audio.autoplay = true;
+    audio.srcObject = stream;
+    audio.style.display = 'none';
+    document.body.appendChild(audio);
+    audio.play().catch(() => {});
+  }
 }
 
 function _removeStudentVideoTile(peerId) {
-  const tile = document.getElementById('live-tile-' + peerId.replace(/[^a-z0-9]/gi, '_'));
+  const safeId = peerId.replace(/[^a-z0-9]/gi, '_');
+  const tile = document.getElementById('live-tile-' + safeId);
   if (tile) tile.remove();
+  const audio = document.getElementById('live-audio-' + safeId);
+  if (audio) audio.remove();
   delete liveState.calls[peerId];
 }
 
@@ -583,6 +642,16 @@ function handlePeerData(data, fromPeerId) {
         });
       } catch(e) {}
     }
+    return;
+  }
+
+  if (data.type === 'screen-share-start') {
+    // Étudiant : le formateur vient de démarrer le partage d'écran
+    _setSourceLabel('🖥️ Écran du formateur');
+    return;
+  } else if (data.type === 'screen-share-stop') {
+    // Étudiant : retour à la caméra du formateur
+    _setSourceLabel('📹 Caméra du formateur');
     return;
   }
 
@@ -751,16 +820,20 @@ async function liveStartScreenShare() {
     liveState.screenStream  = screenStream;
     liveState.screenSharing = true;
 
-    // Remplacer la piste vidéo dans tous les appels PeerJS actifs
+    // Remplacer la piste vidéo dans tous les appels PeerJS actifs (replaceTrack sans renegociation)
     Object.values(liveState.calls).forEach(call => {
-      if (call && call.peerConnection) {
-        const sender = call.peerConnection.getSenders()
-          .find(s => s.track && s.track.kind === 'video');
-        if (sender) sender.replaceTrack(screenTrack).catch(() => {});
-      }
+      const pc = call.peerConnection || call.pc;
+      if (!pc) return;
+      const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+      if (sender) sender.replaceTrack(screenTrack).catch(e => console.warn('[Live] replaceTrack:', e));
     });
 
-    // Afficher localement dans la zone principale (formateur voit son partage)
+    // Notifier les étudiants du changement de source via DataConnection
+    Object.values(liveState.connections).forEach(conn => {
+      try { conn.send({ type: 'screen-share-start' }); } catch(e) {}
+    });
+
+    // Afficher l'écran localement (formateur voit ce qu'il partage)
     const mainVid = document.getElementById('live-main-video');
     if (mainVid) {
       mainVid.srcObject = screenStream;
@@ -773,7 +846,7 @@ async function liveStartScreenShare() {
     // Fin de partage via bouton Stop du navigateur
     screenTrack.onended = liveStopScreenShare;
     updateLiveControls();
-    showNotif('Partage d\'écran activé.', '');
+    showNotif('Partage d\'écran activé — les étudiants voient votre écran.', '');
   } catch(e) {
     liveState.screenSharing = false;
     if (e.name !== 'NotAllowedError') showNotif('Impossible de partager l\'écran.', 'error');
@@ -787,21 +860,26 @@ async function liveStopScreenShare() {
   liveState.screenStream  = null;
   liveState.screenSharing = false;
 
-  // Cacher la zone principale (retour à PiP du formateur)
+  // Cacher zone principale formateur (retour au PiP)
   const mainVid = document.getElementById('live-main-video');
   if (mainVid) { mainVid.srcObject = null; mainVid.style.display = 'none'; }
 
-  // Restaurer la piste caméra dans tous les appels
+  // Restaurer la piste caméra dans tous les appels actifs
   const camTrack = liveState.localStream && liveState.localStream.getVideoTracks()[0];
   if (camTrack) {
     Object.values(liveState.calls).forEach(call => {
-      if (call && call.peerConnection) {
-        const sender = call.peerConnection.getSenders()
-          .find(s => s.track && s.track.kind === 'video');
-        if (sender) sender.replaceTrack(camTrack).catch(() => {});
-      }
+      const pc = call.peerConnection || call.pc;
+      if (!pc) return;
+      const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+      if (sender) sender.replaceTrack(camTrack).catch(() => {});
     });
   }
+
+  // Notifier les étudiants via DataConnection
+  Object.values(liveState.connections).forEach(conn => {
+    try { conn.send({ type: 'screen-share-stop' }); } catch(e) {}
+  });
+
   _setSourceLabel('📹 Votre caméra (diffusion en direct)');
   updateLiveControls();
   showNotif('Partage d\'écran arrêté.', '');
@@ -920,6 +998,12 @@ function cleanupLive() {
   if (localVid) { localVid.srcObject = null; }
   const pip = document.getElementById('live-local-pip');
   if (pip) { pip.style.display = 'none'; pip.style.opacity = '1'; }
+
+  // Supprimer le bouton unmute et les tiles étudiants
+  const unmuteBtn = document.getElementById('live-unmute-overlay');
+  if (unmuteBtn) unmuteBtn.remove();
+  document.querySelectorAll('[id^="live-audio-"]').forEach(a => a.remove());
+  document.querySelectorAll('[id^="live-tile-"]').forEach(t => t.remove());
 
   // Fermer les MediaConnections PeerJS
   Object.values(liveState.calls).forEach(call => { try { call.close(); } catch(e) {} });
