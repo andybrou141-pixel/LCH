@@ -280,10 +280,12 @@ async function openLiveRoom(sessionId, role) {
     try {
       liveState.localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
       liveState.camEnabled = false;
+      showNotif('Caméra inaccessible — connexion en audio uniquement.', '');
     } catch(e2) {
       liveState.localStream = null;
       liveState.camEnabled = false;
       liveState.micEnabled = false;
+      showNotif('Micro et caméra inaccessibles. Autorisez l\'accès dans les paramètres du navigateur puis rechargez.', 'error');
     }
   }
 
@@ -337,6 +339,14 @@ async function initPeer(sessionId, role) {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
+            { urls: 'stun:openrelay.metered.ca:80' },
+            { urls: 'turn:openrelay.metered.ca:80',    username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443',   username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turns:openrelay.metered.ca:443',  username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
           ]
         }
       });
@@ -356,7 +366,18 @@ async function initPeer(sessionId, role) {
       peer.on('call', (call) => {
         // Le formateur répond aux appels entrants des étudiants
         if (role === 'trainer') {
-          call.answer(liveState.localStream || new MediaStream());
+          // Si partage d'écran actif : flux composite écran + micro
+          let answerStream;
+          if (liveState.screenSharing && liveState.screenStream) {
+            answerStream = new MediaStream();
+            const sv = liveState.screenStream.getVideoTracks()[0];
+            const ma = liveState.localStream?.getAudioTracks()[0];
+            if (sv) answerStream.addTrack(sv);
+            if (ma) answerStream.addTrack(ma);
+          } else {
+            answerStream = liveState.localStream || new MediaStream();
+          }
+          call.answer(answerStream);
           handleIncomingCall(call);
         }
       });
@@ -385,11 +406,22 @@ async function initPeer(sessionId, role) {
       });
 
       peer.on('error', (err) => {
-        console.warn('[Live] PeerJS error:', err.type, err.message);
-        if (err.type === 'unavailable-id') {
-          showNotif('⚠️ Session déjà en cours par un autre formateur.', 'error');
+        console.warn('[Live] PeerJS error:', err.type, err.message || '');
+
+        if (err.type === 'peer-unavailable') {
+          // Le formateur n'est pas encore connecté : nettoyer l'appel raté et réessayer
+          if (role === 'student' && liveState.sessionId) {
+            const stale = liveState.calls[liveState.sessionId];
+            if (stale) { try { stale.close(); } catch(e) {} delete liveState.calls[liveState.sessionId]; }
+            setTimeout(() => callTrainer(liveState.sessionId), 3000);
+          }
+          return; // ne pas resolve() ici — garder le peer actif pour les retries
         }
-        resolve(); // continuer même en cas d'erreur
+
+        if (err.type === 'unavailable-id') {
+          showNotif('Session déjà ouverte dans un autre onglet.', 'error');
+        }
+        resolve();
       });
 
       // Timeout de 8 secondes si pas de réponse
@@ -403,35 +435,91 @@ async function initPeer(sessionId, role) {
   });
 }
 
-function callTrainer(sessionId) {
-  if (!liveState.peer) return;
+function callTrainer(sessionId, attempt) {
+  if (attempt === undefined) attempt = 0;
+  if (!liveState.peer || liveState.peer.destroyed) return;
+
+  // Ne rappeler que si aucun appel ouvert n'existe (call.open = true quand connecté)
+  const existingCall = liveState.calls[sessionId];
+  if (existingCall && existingCall.open) return;
+
+  // Nettoyer un éventuel appel échoué/fermé
+  if (existingCall) {
+    try { existingCall.close(); } catch(e) {}
+    delete liveState.calls[sessionId];
+  }
+
+  if (attempt > 10) {
+    showNotif('Impossible de joindre le formateur. Vérifiez votre connexion réseau.', 'error');
+    return;
+  }
+
   try {
-    const call = liveState.peer.call(sessionId, liveState.localStream || new MediaStream());
-    if (!call) return;
-    handleOutgoingCall(call);
+    const stream = liveState.localStream || new MediaStream();
+    const call = liveState.peer.call(sessionId, stream);
+    if (!call) {
+      setTimeout(() => callTrainer(sessionId, attempt + 1), 2000 + attempt * 500);
+      return;
+    }
+    handleOutgoingCall(call, sessionId);
     liveState.calls[sessionId] = call;
 
-    // Connexion données pour le chat temps réel
-    const conn = liveState.peer.connect(sessionId);
-    if (conn) {
-      conn.on('open', () => { liveState.connections[sessionId] = conn; });
-      conn.on('data', (data) => handlePeerData(data));
+    // Connexion données pour le chat et whiteboard
+    if (!liveState.connections[sessionId]) {
+      const conn = liveState.peer.connect(sessionId, { reliable: true });
+      if (conn) {
+        conn.on('open', () => { liveState.connections[sessionId] = conn; });
+        conn.on('data', (data) => handlePeerData(data));
+        conn.on('error', (e) => console.warn('[Live] DataConn error:', e));
+      }
     }
-  } catch(e) { console.warn('[Live] Erreur appel formateur:', e); }
+  } catch(e) {
+    console.warn('[Live] Erreur appel formateur (tentative ' + attempt + '):', e);
+    setTimeout(() => callTrainer(sessionId, attempt + 1), 2000 + attempt * 500);
+  }
 }
 
-function handleOutgoingCall(call) {
+function handleOutgoingCall(call, sessionId) {
   call.on('stream', (remoteStream) => {
-    // Étudiant reçoit le flux du formateur
     const mainVid = document.getElementById('live-main-video');
     if (mainVid) {
       mainVid.srcObject = remoteStream;
-      mainVid.play().catch(()=>{});
+      mainVid.muted = false;
+      const playPromise = mainVid.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // Autoplay bloqué — afficher un bouton pour activer le son
+          const noVid = document.getElementById('live-no-video-msg');
+          if (noVid) {
+            noVid.textContent = 'Cliquer ici pour activer le son';
+            noVid.style.display = 'flex';
+            noVid.style.cursor = 'pointer';
+            noVid.onclick = () => {
+              mainVid.play().catch(()=>{});
+              noVid.style.display = 'none';
+              noVid.onclick = null;
+            };
+          }
+        });
+      }
     }
-    document.getElementById('live-no-video-msg').style.display = 'none';
+    const noVid = document.getElementById('live-no-video-msg');
+    if (noVid && !noVid.onclick) noVid.style.display = 'none';
   });
-  call.on('close', () => handleSessionEnded());
-  call.on('error', (e) => console.warn('[Live] Call error:', e));
+  call.on('close', () => {
+    // Nettoyer l'appel fermé et réessayer si la session est toujours active
+    if (liveState.calls[sessionId] === call) delete liveState.calls[sessionId];
+    if (liveState.sessionId && sessionId) {
+      setTimeout(() => callTrainer(sessionId), 3000);
+    }
+  });
+  call.on('error', (e) => {
+    console.warn('[Live] Appel formateur erreur:', e);
+    if (liveState.calls[sessionId] === call) delete liveState.calls[sessionId];
+    if (liveState.sessionId && sessionId) {
+      setTimeout(() => callTrainer(sessionId), 3000);
+    }
+  });
 }
 
 function handleIncomingCall(call) {
@@ -440,6 +528,10 @@ function handleIncomingCall(call) {
     addStudentVideoTile(peerId, remoteStream);
   });
   call.on('close', () => removeStudentVideoTile(peerId));
+  call.on('error', (e) => {
+    console.warn('[Live] Incoming call error:', e);
+    removeStudentVideoTile(peerId);
+  });
   liveState.calls[peerId] = call;
   updateParticipantsCountDisplay();
 }
@@ -462,7 +554,15 @@ function addStudentVideoTile(peerId, stream) {
   }
 
   const vid = tile.querySelector('video');
-  if (vid) { vid.srcObject = stream; vid.play().catch(()=>{}); }
+  if (vid) {
+    vid.srcObject = stream;
+    vid.muted = false;
+    vid.play().catch(() => {
+      // Retry après interaction utilisateur
+      const onClick = () => { vid.play().catch(()=>{}); document.removeEventListener('click', onClick); };
+      document.addEventListener('click', onClick);
+    });
+  }
 }
 
 function removeStudentVideoTile(peerId) {
@@ -524,6 +624,21 @@ function handlePeerData(data) {
     } else {
       canvas.classList.remove('active', 'view-only');
     }
+  } else if (data.type === 'reconnect') {
+    // Le formateur demande une reconnexion (partage d'écran activé/arrêté)
+    const sessId = liveState.sessionId;
+    if (!sessId || !liveState.peer || liveState.peer.destroyed) return;
+    if (liveState.role !== 'student') return;
+    // Fermer l'appel vidéo existant et forcer nettoyage
+    const oldCall = liveState.calls[sessId];
+    if (oldCall) { try { oldCall.close(); } catch(e) {} }
+    delete liveState.calls[sessId];
+    // Fermer la connexion données existante
+    const oldConn = liveState.connections[sessId];
+    if (oldConn) { try { oldConn.close(); } catch(e) {} }
+    delete liveState.connections[sessId];
+    // Se reconnecter après un court délai pour laisser le formateur prêt
+    setTimeout(() => callTrainer(sessId), 1500);
   }
 }
 
@@ -638,30 +753,50 @@ async function liveToggleScreenShare() {
 
 async function liveStartScreenShare() {
   try {
-    liveState.screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    liveState.screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
     liveState.screenSharing = true;
 
-    const mainVid = document.getElementById('live-main-video');
-    if (mainVid) {
-      mainVid.srcObject = liveState.screenStream;
-      mainVid.play().catch(()=>{});
-    }
+    // Flux composite : vidéo écran + audio micro
+    const screenVideo = liveState.screenStream.getVideoTracks()[0];
+    const micAudio    = liveState.localStream?.getAudioTracks()[0];
+    const composite   = new MediaStream();
+    if (screenVideo) composite.addTrack(screenVideo);
+    if (micAudio)    composite.addTrack(micAudio);
 
-    // Remplacer le flux vidéo dans tous les appels actifs
-    const videoTrack = liveState.screenStream.getVideoTracks()[0];
+    // Afficher localement sur le formateur
+    const mainVid = document.getElementById('live-main-video');
+    if (mainVid) { mainVid.srcObject = composite; mainVid.play().catch(()=>{}); }
+
+    // Tentative replaceTrack sur les appels existants
+    let replacedCount = 0;
     Object.values(liveState.calls).forEach(call => {
       try {
-        const sender = call.peerConnection?.getSenders().find(s => s.track?.kind === 'video');
-        if (sender) sender.replaceTrack(videoTrack);
-      } catch(e) {}
+        const pc = call.peerConnection;
+        if (!pc) return;
+        const vSender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (vSender && screenVideo) { vSender.replaceTrack(screenVideo); replacedCount++; }
+        // Remplacer aussi l'audio si nécessaire
+        const aSender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
+        if (aSender && micAudio) aSender.replaceTrack(micAudio);
+      } catch(e) { console.warn('[Live] replaceTrack écran:', e); }
     });
 
-    liveState.screenStream.getVideoTracks()[0].onended = liveStopScreenShare;
+    // Si replaceTrack a échoué pour certains, ou aucun étudiant connecté :
+    // demander à tous les étudiants de se reconnecter
+    if (replacedCount < Object.keys(liveState.calls).length || !replacedCount) {
+      Object.values(liveState.connections).forEach(conn => {
+        try { conn.send({ type: 'reconnect' }); } catch(e) {}
+      });
+    }
+
+    if (screenVideo) screenVideo.onended = liveStopScreenShare;
     updateLiveControls();
-    showNotif('🖥️ Partage d\'écran activé.', '');
+    showNotif('Partage d\'écran activé.', '');
   } catch(e) {
+    liveState.screenSharing = false;
+    liveState.screenStream = null;
     if (e.name !== 'NotAllowedError') {
-      showNotif('⚠️ Impossible de partager l\'écran.', 'error');
+      showNotif('Impossible de partager l\'écran.', 'error');
     }
   }
 }
@@ -672,25 +807,37 @@ async function liveStopScreenShare() {
   liveState.screenStream = null;
   liveState.screenSharing = false;
 
-  // Remettre la caméra dans les appels
+  // Afficher la caméra locale du formateur
+  const mainVid = document.getElementById('live-main-video');
+  if (mainVid && liveState.localStream) {
+    mainVid.srcObject = liveState.localStream;
+    mainVid.play().catch(()=>{});
+  }
+
+  // Tentative replaceTrack : revenir à la caméra
   const camTrack = liveState.localStream?.getVideoTracks()[0];
+  const micTrack = liveState.localStream?.getAudioTracks()[0];
+  let replacedCount = 0;
   Object.values(liveState.calls).forEach(call => {
     try {
-      const sender = call.peerConnection?.getSenders().find(s => s.track?.kind === 'video');
-      if (sender && camTrack) sender.replaceTrack(camTrack);
-    } catch(e) {}
+      const pc = call.peerConnection;
+      if (!pc) return;
+      const vSender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+      if (vSender && camTrack) { vSender.replaceTrack(camTrack); replacedCount++; }
+      const aSender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
+      if (aSender && micTrack) aSender.replaceTrack(micTrack);
+    } catch(e) { console.warn('[Live] replaceTrack caméra:', e); }
   });
 
-  // Afficher la caméra locale dans la vidéo principale (formateur)
-  if (liveState.role === 'trainer') {
-    const mainVid = document.getElementById('live-main-video');
-    if (mainVid && liveState.localStream) {
-      mainVid.srcObject = liveState.localStream;
-    }
+  // Si replaceTrack a échoué : demander reconnexion
+  if (replacedCount < Object.keys(liveState.calls).length || !replacedCount) {
+    Object.values(liveState.connections).forEach(conn => {
+      try { conn.send({ type: 'reconnect' }); } catch(e) {}
+    });
   }
 
   updateLiveControls();
-  showNotif('🖥️ Partage d\'écran arrêté.', '');
+  showNotif('Partage d\'écran arrêté.', '');
 }
 
 // ══════════════════════════════════════════
@@ -800,6 +947,7 @@ function cleanupLive() {
   liveState.chatPollTimer = null;
   if (liveState.jsonbinSyncTimer) { clearInterval(liveState.jsonbinSyncTimer); liveState.jsonbinSyncTimer = null; }
   if (liveState.attendeeSaveTimer) { clearInterval(liveState.attendeeSaveTimer); liveState.attendeeSaveTimer = null; }
+  if (liveState.webrtcReconnectTimer) { clearInterval(liveState.webrtcReconnectTimer); liveState.webrtcReconnectTimer = null; }
   liveState.presencePollTimer = null;
   liveState.sessionTimerInterval = null;
   // Réinitialiser document + tableau blanc
@@ -1056,6 +1204,15 @@ function startLiveTimers(sessionId, role) {
         _saveLiveAttendeeMerge(liveState.sessionId, auth.userId);
       }
     }, 30 * 1000);
+
+    // Reconnect WebRTC si l'appel vers le formateur est absent ou fermé (call.open = false)
+    liveState.webrtcReconnectTimer = setInterval(() => {
+      if (!liveState.sessionId || !liveState.peer || liveState.peer.destroyed) return;
+      const existingCall = liveState.calls[liveState.sessionId];
+      if (!existingCall || !existingCall.open) {
+        callTrainer(liveState.sessionId);
+      }
+    }, 15 * 1000);
   }
 }
 
