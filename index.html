@@ -14263,13 +14263,7 @@ function saveName() {
 //  NOTIFICATION
 // ══════════════════════════════════════════
 let notifTimer = null;
-function showNotif(msg, type='') {
-  const el = document.getElementById('notif');
-  el.textContent = msg;
-  el.className = 'notif show ' + type;
-  clearTimeout(notifTimer);
-  notifTimer = setTimeout(() => el.className = 'notif', 2200);
-}
+function showNotif(msg, type='') {}
 
 // ══════════════════════════════════════════
 //  STUDENT RESULTS TRACKING
