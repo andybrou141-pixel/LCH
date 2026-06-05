@@ -10090,8 +10090,18 @@ function startSession() {
     }
 
     // Calculer les timestamps à partir des heures du créneau et de sa date exacte
-    const [sh, sm] = slot.startTime.split(':').map(Number);
-    const [eh, em] = slot.endTime.split(':').map(Number);
+    const rawStart = (slot.startTime || '').trim();
+    const rawEnd   = (slot.endTime   || '').trim();
+    if (!rawStart || !rawEnd) {
+      showNotif("Les heures de ce créneau sont manquantes.", 'error');
+      return;
+    }
+    const [sh, sm] = rawStart.split(':').map(Number);
+    const [eh, em] = rawEnd.split(':').map(Number);
+    if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) {
+      showNotif("Heure du créneau invalide. Supprimez-le et recréez-le.", 'error');
+      return;
+    }
     const baseDate = _slotDateObj(slot);
 
     const startDate = new Date(baseDate); startDate.setHours(sh, sm, 0, 0);
@@ -10623,11 +10633,13 @@ function renderTrainerPresence() {
     if (_savedLabel) { const el = document.getElementById('sess-label-input'); if (el) el.value = _savedLabel; }
     // Rafraîchir l'affichage (récapitulatif créneau ou champs manuels)
     prefillFromSlot();
-    // En mode manuel, restaurer les valeurs des champs horaires
+    // En mode manuel, définir les valeurs programmatiquement (value attribute peut être ignoré pour <input type="time">)
     if (!_savedSlot) {
       if (_savedPromo) { const el = document.getElementById('sess-promo-select'); if (el) el.value = _savedPromo; }
-      if (_savedEnd)   { const el = document.getElementById('sess-end-time');     if (el) el.value = _savedEnd; }
-      if (_savedStart) { const el = document.getElementById('sess-start-time');   if (el) el.value = _savedStart; }
+      const _stEl = document.getElementById('sess-start-time');
+      if (_stEl) _stEl.value = _savedStart || _nowStart;
+      const _etEl = document.getElementById('sess-end-time');
+      if (_etEl) _etEl.value = _defEnd;
     }
     // Restaurer le formulaire d'ajout de créneau s'il était ouvert
     if (_slotFormOpen) {
@@ -11079,6 +11091,14 @@ function toggleTrainerSlotForm() {
   const visible = form.style.display !== 'none';
   form.style.display = visible ? 'none' : 'block';
   if (btn) btn.textContent = visible ? '+ Ajouter' : '✕ Annuler';
+  if (!visible) {
+    const dateEl  = document.getElementById('tsf-date');
+    if (dateEl && !dateEl.value)   dateEl.value  = new Date().toISOString().slice(0, 10);
+    const startEl = document.getElementById('tsf-start');
+    if (startEl && !startEl.value) startEl.value = '08:00';
+    const endEl   = document.getElementById('tsf-end');
+    if (endEl && !endEl.value)     endEl.value   = '11:00';
+  }
 }
 
 function saveTrainerScheduleSlot() {
@@ -11163,6 +11183,11 @@ function prefillFromSlot() {
   if (startEl) startEl.textContent = slot.startTime || '—';
   if (endEl)   endEl.textContent   = slot.endTime   || '—';
   if (dateEl)  dateEl.textContent  = _fmtSlotDate(nextDate);
+  // Synchroniser les inputs manuels pour que startSession() dispose des heures du créneau
+  const startInp = document.getElementById('sess-start-time');
+  const endInp   = document.getElementById('sess-end-time');
+  if (startInp && slot.startTime) startInp.value = slot.startTime;
+  if (endInp   && slot.endTime)   endInp.value   = slot.endTime;
 
   // Pré-remplir l'intitulé si vide
   if (labelIn && slot.label && !labelIn.value) labelIn.value = slot.label;
