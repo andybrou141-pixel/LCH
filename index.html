@@ -4102,9 +4102,10 @@
     #trainer-drawer-hamburger { display:flex !important; }
     .trainer-mobile-nav { display:none !important; }
   }
-  /* Anti-flash connexion : masque tous les ecrans pendant le chargement si une session existe */
+  /* Anti-flash connexion : masque tout pendant le chargement si une session existe */
   html.has-session .screen { display: none !important; }
   html.has-session #welcome { display: none !important; }
+  html.has-session body { background: #f0f2f5 !important; }
 </style>
 <script>
 (function(){
