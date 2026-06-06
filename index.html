@@ -4110,6 +4110,7 @@
 <script>
 (function(){
   try {
+    if (localStorage.getItem('hermes_logged_out') === '1') return; // Déconnexion explicite
     var s = JSON.parse(localStorage.getItem('hermes_session') || sessionStorage.getItem('hermes_session') || 'null');
     if (s && s.role) document.documentElement.classList.add('has-session');
   } catch(e) {}
@@ -7725,6 +7726,7 @@ async function deletePdf(courseId) {
 function saveSession(remember) {
   const data = JSON.stringify({ role: auth.role, userId: auth.userId });
   try {
+    localStorage.removeItem('hermes_logged_out'); // Nouvelle session → effacer le flag déconnexion
     if (remember === true) {
       localStorage.setItem(SESSION_KEY, data);
       localStorage.setItem(REMEMBER_KEY, '1');
@@ -7742,6 +7744,7 @@ function saveSession(remember) {
 
 function loadSession() {
   try {
+    if (localStorage.getItem('hermes_logged_out') === '1') return; // Déconnexion explicite — ne pas restaurer
     const persistent = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
     if (persistent?.role) { auth.role = persistent.role; auth.userId = persistent.userId; return; }
     const session = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
@@ -7750,15 +7753,18 @@ function loadSession() {
 }
 
 function clearSession() {
-  auth.role = null;
+  auth.role   = null;
   auth.userId = null;
+  // Supprimer immédiatement de la mémoire JS avant toute opération storage
   try {
     localStorage.removeItem(SESSION_KEY);
-    sessionStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(SCREEN_KEY);
-    // REMEMBER_KEY conservé intentionnellement : la préférence "enregistrer sur ce téléphone" persiste.
-    // Pour réinitialiser cette préférence, l'étudiant doit utiliser "Changer d'appareil".
-  } catch (e) {}
+    sessionStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SCREEN_KEY);
+  } catch (_) {}
+  // Marquer explicitement "déconnecté" pour que le script inline <head> ne restaure pas la session
+  try { localStorage.setItem('hermes_logged_out', '1'); } catch (_) {}
+  // REMEMBER_KEY conservé intentionnellement : la préférence "enregistrer sur ce téléphone" persiste.
 }
 
 function resetDeviceMemory() {
@@ -16019,6 +16025,25 @@ if (document.readyState === 'loading') {
 
 window.addEventListener('beforeunload', () => {
   if (auth.role === 'student') endAttendanceSession();
+});
+
+// BFCache : le navigateur peut restaurer une ancienne version de la page (avec auth en mémoire)
+// même après une déconnexion. On re-valide l'état de session si la page vient du cache.
+window.addEventListener('pageshow', function(e) {
+  if (!e.persisted) return; // Chargement normal — pas de BFCache
+  const hasValidSession = (() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY) || 'null');
+      return !!(s && s.role);
+    } catch(_) { return false; }
+  })();
+  if (!hasValidSession && auth.role) {
+    // Session supprimée (déconnexion) mais BFCache a restauré l'ancien état JS
+    auth.role   = null;
+    auth.userId = null;
+    document.documentElement.classList.remove('has-session');
+    showWelcomePage();
+  }
 });
 
 document.addEventListener('visibilitychange', () => {
