@@ -820,20 +820,28 @@ async function liveStartScreenShare() {
     liveState.screenStream  = screenStream;
     liveState.screenSharing = true;
 
-    // Remplacer la piste vidéo dans tous les appels PeerJS actifs (replaceTrack sans renegociation)
-    Object.values(liveState.calls).forEach(call => {
-      const pc = call.peerConnection || call.pc;
-      if (!pc) return;
-      const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-      if (sender) sender.replaceTrack(screenTrack).catch(e => console.warn('[Live] replaceTrack:', e));
+    // Construire le flux à envoyer : vidéo écran + audio local
+    const audioTracks = liveState.localStream ? liveState.localStream.getAudioTracks() : [];
+    const streamForStudents = new MediaStream([screenTrack, ...audioTracks]);
+
+    // Fermer les appels existants et recréer avec le flux écran
+    // (replaceTrack peut échouer si pas de sender vidéo préexistant)
+    const studentPeerIds = Object.keys(liveState.calls);
+    studentPeerIds.forEach(peerId => {
+      try { liveState.calls[peerId].close(); } catch(e) {}
+      delete liveState.calls[peerId];
+    });
+    // Recréer les appels avec le flux écran
+    studentPeerIds.forEach(peerId => {
+      _callStudentWithStream(peerId, streamForStudents);
     });
 
-    // Notifier les étudiants du changement de source via DataConnection
+    // Notifier les étudiants du changement de source
     Object.values(liveState.connections).forEach(conn => {
       try { conn.send({ type: 'screen-share-start' }); } catch(e) {}
     });
 
-    // Afficher l'écran localement (formateur voit ce qu'il partage)
+    // Afficher l'écran localement
     const mainVid = document.getElementById('live-main-video');
     if (mainVid) {
       mainVid.srcObject = screenStream;
@@ -842,8 +850,6 @@ async function liveStartScreenShare() {
       mainVid.play().catch(() => {});
     }
     _setSourceLabel('🖥️ Partage d\'écran');
-
-    // Fin de partage via bouton Stop du navigateur
     screenTrack.onended = liveStopScreenShare;
     updateLiveControls();
     showNotif('Partage d\'écran activé — les étudiants voient votre écran.', '');
@@ -860,22 +866,21 @@ async function liveStopScreenShare() {
   liveState.screenStream  = null;
   liveState.screenSharing = false;
 
-  // Cacher zone principale formateur (retour au PiP)
   const mainVid = document.getElementById('live-main-video');
   if (mainVid) { mainVid.srcObject = null; mainVid.style.display = 'none'; }
 
-  // Restaurer la piste caméra dans tous les appels actifs
-  const camTrack = liveState.localStream && liveState.localStream.getVideoTracks()[0];
-  if (camTrack) {
-    Object.values(liveState.calls).forEach(call => {
-      const pc = call.peerConnection || call.pc;
-      if (!pc) return;
-      const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-      if (sender) sender.replaceTrack(camTrack).catch(() => {});
+  // Recréer les appels avec la caméra
+  const studentPeerIds = Object.keys(liveState.calls);
+  studentPeerIds.forEach(peerId => {
+    try { liveState.calls[peerId].close(); } catch(e) {}
+    delete liveState.calls[peerId];
+  });
+  if (liveState.localStream) {
+    studentPeerIds.forEach(peerId => {
+      _callStudentWithStream(peerId, liveState.localStream);
     });
   }
 
-  // Notifier les étudiants via DataConnection
   Object.values(liveState.connections).forEach(conn => {
     try { conn.send({ type: 'screen-share-stop' }); } catch(e) {}
   });
@@ -883,6 +888,19 @@ async function liveStopScreenShare() {
   _setSourceLabel('📹 Votre caméra (diffusion en direct)');
   updateLiveControls();
   showNotif('Partage d\'écran arrêté.', '');
+}
+
+// Appel vidéo vers un étudiant avec un flux spécifique
+function _callStudentWithStream(studentPeerId, stream) {
+  if (!liveState.peer || !stream) return;
+  try {
+    const call = liveState.peer.call(studentPeerId, stream);
+    if (!call) return;
+    liveState.calls[studentPeerId] = call;
+    call.on('stream', (studentStream) => { _addStudentVideoTile(studentPeerId, studentStream); });
+    call.on('close', () => { _removeStudentVideoTile(studentPeerId); });
+    call.on('error', () => { _removeStudentVideoTile(studentPeerId); });
+  } catch(e) { console.warn('[Live] Erreur appel étudiant:', e); }
 }
 
 // ══════════════════════════════════════════

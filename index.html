@@ -7619,6 +7619,7 @@ const ADMIN_PASSWORD = 'hermes2024';
 const STORAGE_KEY = 'hermes_knowledge_data';
 const SESSION_KEY = 'hermes_session';
 const REMEMBER_KEY = 'hermes_remember';
+const SCREEN_KEY = 'hermes_screen_v1';
 const PDF_DB_NAME = 'hermes_pdfs';
 const PDF_STORE = 'pdfs';
 
@@ -7738,6 +7739,7 @@ function clearSession() {
   try {
     localStorage.removeItem(SESSION_KEY);
     sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SCREEN_KEY);
     // REMEMBER_KEY conservé intentionnellement : la préférence "enregistrer sur ce téléphone" persiste.
     // Pour réinitialiser cette préférence, l'étudiant doit utiliser "Changer d'appareil".
   } catch (e) {}
@@ -9309,6 +9311,7 @@ function enterTrainerApp() {
 }
 
 function switchTrainerView(view) {
+  try { localStorage.setItem(SCREEN_KEY, 'trainer:' + view); } catch(e) {}
   document.querySelectorAll('.trainer-view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('[data-trainer-view]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.trainerView === view);
@@ -10324,6 +10327,8 @@ function updateSessionResumeBanner() {
 
 function resumeSession() {
   if (!auth.role) loadSession(); // Recharger depuis localStorage si auth vidé par logout()
+  const savedScreen = (() => { try { return localStorage.getItem(SCREEN_KEY) || null; } catch(e) { return null; } })();
+
   if (auth.role === 'student' && auth.userId) {
     const user = appData.users.find(u => u.id === auth.userId);
     if (user) {
@@ -10336,14 +10341,28 @@ function resumeSession() {
         return;
       }
       loadUserStats(user);
-      enterStudentApp();
+      enterStudentApp(); // navigates to 'splash' by default
+      // Restore the exact student screen they were on
+      if (savedScreen?.startsWith('student:')) {
+        const screen = savedScreen.split(':')[1];
+        const validScreens = ['splash','course-study','selector','profile','leaderboard'];
+        if (validScreens.includes(screen)) goTo(screen);
+      }
       return;
     }
   }
-  if (auth.role === 'admin') { enterAdminApp(); return; }
+  if (auth.role === 'admin') {
+    enterAdminApp(); // navigates to 'dashboard' by default
+    if (savedScreen?.startsWith('admin:')) switchAdminView(savedScreen.split(':')[1]);
+    return;
+  }
   if (auth.role === 'trainer' && auth.userId) {
     const trainer = (appData.trainers || []).find(t => t.id === auth.userId);
-    if (trainer) { enterTrainerApp(); return; }
+    if (trainer) {
+      enterTrainerApp(); // navigates to 'dashboard' by default
+      if (savedScreen?.startsWith('trainer:')) switchTrainerView(savedScreen.split(':')[1]);
+      return;
+    }
   }
   clearSession();
   showWelcomePage();
@@ -13386,6 +13405,7 @@ function renderExerciseTypesSelector() {
 //  ADMIN
 // ══════════════════════════════════════════
 function switchAdminView(view, filterPromoId) {
+  try { localStorage.setItem(SCREEN_KEY, 'admin:' + view); } catch(e) {}
   adminState.adminView = view;
   document.querySelectorAll('.admin-nav-item, .admin-mobile-nav button, #admin-drawer .drawer-nav-item, #admin-drawer .drawer-accordion-item').forEach(el => {
     el.classList.toggle('active', el.dataset.adminView === view);
@@ -14413,6 +14433,7 @@ function goTo(screenId) {
   document.querySelectorAll('#student-app .screen').forEach(s => s.classList.remove('active'));
   document.getElementById(screenId).classList.add('active');
   state.screen = screenId;
+  try { localStorage.setItem(SCREEN_KEY, 'student:' + screenId); } catch(e) {}
 
   const showNav = ['splash','course-study','selector','profile','leaderboard'].includes(screenId);
   document.getElementById('bottom-nav').style.display = showNav ? 'flex' : 'none';
@@ -15827,6 +15848,16 @@ function closeVideoPlayer() {
 // ══════════════════════════════════════════
 async function initApp() {
   try {
+    // Prevent login-page flash on refresh: if auth is already in storage, hide all screens immediately
+    const _quickAuth = (() => {
+      try {
+        return JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY) || 'null');
+      } catch(e) { return null; }
+    })();
+    if (_quickAuth?.role) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    }
+
     // Migration : retirer les cours et QCM par défaut injectés automatiquement
     // Migration v3 : supprimer TOUS les cours/questions injectés automatiquement
     const CLEAN_VERSION_KEY = 'hermes_clean_v3';
