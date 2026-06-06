@@ -1046,6 +1046,19 @@
   #live-local-pip { width: 90px; height: 64px; bottom: 72px; }
 }
 
+@media (max-width: 360px) {
+  #live-topbar { padding: 0.4rem 0.5rem; gap: 0.35rem; }
+  #live-session-title { font-size: 0.7rem; max-width: 90px; }
+  #live-timer-display { display: none; }
+  .live-badge-live { display: none; }
+  #live-participants-count { display: none; }
+  .live-ctrl-btn { min-width: 38px; padding: 0.4rem; }
+  .live-ctrl-btn-end { min-width: 56px; }
+  .live-ctrl-btn-end .live-ctrl-label { font-size: 0.58rem; }
+  .live-student-tile { width: 82px; height: 58px; }
+  #live-local-pip { width: 78px; height: 54px; bottom: 64px; right: 0.3rem; }
+}
+
 /* ═══════════════════════════════════════
    PARTAGE DE DOCUMENTS
    ═══════════════════════════════════════ */
