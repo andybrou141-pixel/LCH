@@ -4308,6 +4308,9 @@
 
         <!-- ÉTAPE 1 : Choisir une promotion -->
         <div id="reg-step-1">
+          <!-- Connexion rapide (affiché si téléphone mémorisé) -->
+          <div id="reg-quick-connect" style="display:none;margin-bottom:1.1rem;"></div>
+
           <h2 class="edu-form-title" style="margin-bottom:0.3rem;">Choisissez votre promotion</h2>
           <p class="edu-form-sub" style="margin-bottom:1.1rem;">Sélectionnez la promotion dans laquelle vous êtes inscrit par votre administrateur.</p>
           <div class="promo-select-grid" id="promo-select-grid"></div>
@@ -7632,6 +7635,7 @@ const STORAGE_KEY = 'hermes_knowledge_data';
 const SESSION_KEY = 'hermes_session';
 const REMEMBER_KEY = 'hermes_remember';
 const SCREEN_KEY = 'hermes_screen_v1';
+const PHONE_CACHE_KEY = 'hermes_phone_cache';
 const PDF_DB_NAME = 'hermes_pdfs';
 const PDF_STORE = 'pdfs';
 
@@ -7761,6 +7765,7 @@ function resetDeviceMemory() {
   try {
     localStorage.removeItem(REMEMBER_KEY);
     localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(PHONE_CACHE_KEY);
     sessionStorage.removeItem(SESSION_KEY);
   } catch (e) {}
 }
@@ -7884,7 +7889,35 @@ function renderPromoSelector() {
   const grid    = document.getElementById('promo-select-grid');
   const noPromo = document.getElementById('reg-no-promo');
   const nextBtn = document.getElementById('reg-next-btn');
+  const qcDiv   = document.getElementById('reg-quick-connect');
   if (!grid) return;
+
+  // Connexion rapide : afficher si un téléphone est mémorisé
+  if (qcDiv) {
+    const cached = (() => { try { return JSON.parse(localStorage.getItem(PHONE_CACHE_KEY) || 'null'); } catch(e) { return null; } })();
+    const cachedPromo = cached?.promotionId ? (appData.promotions || []).find(p => p.id === cached.promotionId && promoStatus(p) === 'active') : null;
+    if (cached?.phone && cached?.name && cachedPromo) {
+      qcDiv.style.display = 'block';
+      qcDiv.innerHTML = `
+        <div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:14px;padding:1rem 1.1rem;">
+          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.55rem;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span style="font-size:0.78rem;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:0.05em;">Accès mémorisé</span>
+          </div>
+          <div style="font-weight:700;color:#1A1A1A;font-size:0.93rem;">${cached.name}</div>
+          <div style="color:#6B7280;font-size:0.82rem;margin-bottom:0.85rem;">${formatPhoneDisplay(cached.phone)} · ${cachedPromo.name}</div>
+          <button onclick="quickConnect()" style="width:100%;padding:0.75rem;background:linear-gradient(135deg,#16A34A,#15803D);color:#fff;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.45rem;margin-bottom:0.45rem;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            Connexion rapide
+          </button>
+          <button onclick="clearPhoneCache()" style="width:100%;padding:0.6rem;background:none;color:#9CA3AF;border:none;font-family:'DM Sans',sans-serif;font-size:0.8rem;cursor:pointer;">Utiliser un autre compte</button>
+        </div>`;
+    } else {
+      qcDiv.style.display = 'none';
+      qcDiv.innerHTML = '';
+    }
+  }
+
   const open = (appData.promotions || []).filter(p => promoStatus(p) === 'active');
   if (!open.length) {
     grid.innerHTML = '';
@@ -7906,6 +7939,29 @@ function renderPromoSelector() {
       <div class="promo-select-item-check">✓</div>
     </button>
   `).join('');
+}
+
+function quickConnect() {
+  const cached = (() => { try { return JSON.parse(localStorage.getItem(PHONE_CACHE_KEY) || 'null'); } catch(e) { return null; } })();
+  if (!cached?.phone || !cached?.name || !cached?.promotionId) return;
+  // Sélectionner la promo dans la grille
+  document.querySelectorAll('.promo-select-item').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.promoId === cached.promotionId);
+  });
+  // Pré-remplir étape 2
+  const nameEl  = document.getElementById('student-name');
+  const phoneEl = document.getElementById('student-phone');
+  if (nameEl)  nameEl.value  = cached.name;
+  if (phoneEl) { phoneEl.value = cached.phone; onPhoneInput(phoneEl); }
+  // Passer à l'étape 2 puis générer le code directement
+  goToRegStep2();
+  requestOTP();
+}
+
+function clearPhoneCache() {
+  try { localStorage.removeItem(PHONE_CACHE_KEY); } catch(e) {}
+  const qcDiv = document.getElementById('reg-quick-connect');
+  if (qcDiv) { qcDiv.style.display = 'none'; qcDiv.innerHTML = ''; }
 }
 
 function selectPromo(el) {
@@ -8030,10 +8086,19 @@ function requestOTP() {
     return;
   }
 
-  // Avertissement souple si ce numéro est déjà utilisé par un nom très différent
+  // Bloquer si ce nom est déjà enregistré avec un numéro différent
+  const nameOwner = (appData.users || []).find(u => normalizeStr(u.name) === normalizeStr(name));
+  if (nameOwner && nameOwner.phone !== phone) {
+    showNotif('Ce nom est déjà enregistré avec un autre numéro. Utilisez le numéro associé à votre compte.', 'error');
+    document.getElementById('student-phone').focus();
+    return;
+  }
+  // Info si ce numéro est utilisé par quelqu'un d'autre
   const phoneOwner = (appData.users || []).find(u => u.phone === phone);
   if (phoneOwner && normalizeStr(phoneOwner.name) !== normalizeStr(name)) {
-    showNotif('Ce numéro est déjà enregistré. Si c\'est votre compte, continuez — l\'OTP le confirmera.', 'info');
+    showNotif('Ce numéro appartient à un autre compte. Vérifiez votre numéro ou votre nom.', 'error');
+    document.getElementById('student-phone').focus();
+    return;
   }
 
   // Génération OTP 6 chiffres
@@ -12305,9 +12370,22 @@ function confirmRemember(remember) {
   const overlay = document.getElementById('remember-overlay');
   if (overlay) overlay.style.display = 'none';
   saveSession(remember);
+  if (remember) {
+    // Mémoriser aussi le téléphone pour la connexion rapide future
+    const user = appData.users.find(u => u.id === auth.userId);
+    if (user?.phone) {
+      try {
+        localStorage.setItem(PHONE_CACHE_KEY, JSON.stringify({
+          name: user.name,
+          phone: user.phone,
+          promotionId: user.promotionId
+        }));
+      } catch(e) {}
+    }
+  }
   enterStudentApp();
   const msg = remember
-    ? 'Bienvenue ! Vos informations sont enregistrées.'
+    ? 'Bienvenue ! Vos informations sont enregistrées pour la prochaine visite.'
     : 'Bienvenue ! Vous devrez vous identifier à la prochaine visite.';
   showNotif(msg, 'success');
 }
