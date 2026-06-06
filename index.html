@@ -4140,31 +4140,7 @@
 </div>
 
 <!-- ══════════════ PROMPT ENREGISTREMENT TÉLÉPHONE ══════════════ -->
-<div id="remember-overlay" style="display:none;position:fixed;inset:0;z-index:9200;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;padding:1.25rem;backdrop-filter:blur(6px);">
-  <div style="background:#fff;border-radius:24px;width:100%;max-width:360px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,0.35);animation:slideUp 0.3s ease;">
-    <!-- Bandeau -->
-    <div style="background:linear-gradient(135deg,#0D47A1 0%,#1976D2 100%);padding:2rem 1.5rem 1.5rem;text-align:center;">
-      <div style="width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;margin:0 auto 0.9rem;">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-      </div>
-      <div style="color:#fff;font-size:1.1rem;font-weight:800;margin-bottom:0.3rem;">Enregistrer sur ce téléphone ?</div>
-      <div id="remember-welcome-name" style="color:rgba(255,255,255,0.75);font-size:0.88rem;"></div>
-    </div>
-    <!-- Corps -->
-    <div style="padding:1.5rem;">
-      <p style="color:#374151;font-size:0.9rem;line-height:1.6;margin-bottom:1.4rem;text-align:center;">
-        Si vous enregistrez, la prochaine fois que vous ouvrez l'application, votre espace s'ouvrira <strong>automatiquement</strong> sans ressaisir vos informations.
-      </p>
-      <button onclick="confirmRemember(true)" style="width:100%;padding:0.9rem;background:linear-gradient(135deg,#0D47A1,#1976D2);color:#fff;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:0.95rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.55rem;margin-bottom:0.65rem;">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        Oui, enregistrer mes informations
-      </button>
-      <button onclick="confirmRemember(false)" style="width:100%;padding:0.8rem;background:#F5F5F5;color:#6B7280;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:0.9rem;font-weight:600;cursor:pointer;">
-        Non, je préfère ressaisir à chaque fois
-      </button>
-    </div>
-  </div>
-</div>
+
 
 <!-- ══ ALERTE MENSUALITÉ (affiché à l'entrée de l'app) ══ -->
 <div id="pay-alert-overlay" style="display:none;position:fixed;inset:0;z-index:9300;background:rgba(0,0,0,0.70);align-items:center;justify-content:center;padding:1.25rem;backdrop-filter:blur(6px);">
@@ -4276,7 +4252,7 @@
   </div>
 </div>
 
-<!-- ══════════════ CONNEXION APPRENANT ══════════════ -->
+<!-- ══════════════ CONNEXION ETUDIANT ══════════════ -->
 <div class="screen" id="login-student">
   <div class="edu-split">
     <div class="edu-left">
@@ -4291,125 +4267,57 @@
         <img src="logo.jpeg" alt="Les Cours Hermès" class="auth-logo" onerror="this.style.display='none';document.getElementById('edu-logo-fb-student').style.display='flex';">
         <div class="edu-right-logo-fallback" id="edu-logo-fb-student" style="display:none;">H</div>
 
-        <!-- Indicateur 3 étapes -->
-        <div class="reg-stepper">
-          <div class="reg-step-item">
-            <div class="reg-step-dot active" id="dot-step-1">1</div>
-            <span class="reg-step-label active" id="lbl-step-1">Promotion</span>
+        <!-- Bannière connexion mémorisée -->
+        <div id="quick-access-banner" style="display:none;margin-bottom:1.25rem;background:#F0F9FF;border:1.5px solid #BAE6FD;border-radius:14px;padding:0.95rem 1rem;">
+          <div style="display:flex;align-items:center;gap:0.75rem;">
+            <div id="quick-user-avatar" style="width:44px;height:44px;border-radius:50%;background:#0D47A1;color:#fff;font-size:1rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;letter-spacing:-0.02em;">—</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:0.68rem;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;">Bon retour</div>
+              <div id="quick-user-name" style="font-weight:700;color:#1E293B;font-size:0.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+            </div>
+            <button onclick="quickLoginFromCache()" style="background:#0D47A1;color:#fff;border:none;border-radius:10px;padding:0.55rem 1rem;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:background 0.15s;" onmouseover="this.style.background='#1565C0'" onmouseout="this.style.background='#0D47A1'">Entrer →</button>
           </div>
-          <div class="reg-step-line" id="line-step-1"></div>
-          <div class="reg-step-item">
-            <div class="reg-step-dot" id="dot-step-2">2</div>
-            <span class="reg-step-label" id="lbl-step-2">Informations</span>
-          </div>
-          <div class="reg-step-line" id="line-step-2"></div>
-          <div class="reg-step-item">
-            <div class="reg-step-dot" id="dot-step-3">3</div>
-            <span class="reg-step-label" id="lbl-step-3">Vérification</span>
-          </div>
+          <button onclick="clearCodeCache()" style="background:none;border:none;color:#94A3B8;font-size:0.75rem;cursor:pointer;margin-top:0.55rem;font-family:'DM Sans',sans-serif;display:block;width:100%;text-align:center;padding:0.2rem 0;" onmouseover="this.style.color='#64748B'" onmouseout="this.style.color='#94A3B8'">Ce n'est pas moi →</button>
         </div>
 
-        <!-- ÉTAPE 1 : Choisir une promotion -->
-        <div id="reg-step-1">
-          <!-- Connexion rapide (affiché si téléphone mémorisé) -->
-          <div id="reg-quick-connect" style="display:none;margin-bottom:1.1rem;"></div>
-
-          <h2 class="edu-form-title" style="margin-bottom:0.3rem;">Choisissez votre promotion</h2>
-          <p class="edu-form-sub" style="margin-bottom:1.1rem;">Sélectionnez la promotion dans laquelle vous êtes inscrit par votre administrateur.</p>
-          <div class="promo-select-grid" id="promo-select-grid"></div>
-          <div id="reg-no-promo" style="display:none;">
-            <div class="promo-empty-state">
-              <div class="promo-empty-icon">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="1.5"><path d="M12 14l9-5-9-5-9 5 9 5z"/><path d="M12 14l6.16-3.422a12 12 0 01.665 6.479A12 12 0 0112 20.055a12 12 0 01-6.824-2.998 12 12 0 01.665-6.479L12 14z"/></svg>
-              </div>
-              <div class="promo-empty-title">Aucune promotion disponible</div>
-              <div class="promo-empty-sub">Votre administrateur n'a pas encore créé de promotion ouverte.<br>Contactez-le pour accéder à la plateforme.</div>
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:1.1rem;" id="reg-step-1-btns">
-            <button class="edu-btn-primary" id="reg-next-btn" onclick="goToRegStep2()">Suivant →</button>
-            <button class="edu-btn-social btn-back-welcome" onclick="goTo('welcome')">← Retour à l'accueil</button>
-          </div>
+        <!-- Séparateur "ou" -->
+        <div id="code-or-separator" style="display:none;align-items:center;gap:0.75rem;margin-bottom:1.1rem;">
+          <div style="flex:1;height:1px;background:#E2E8F0;"></div>
+          <span style="font-size:0.7rem;color:#94A3B8;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;">ou</span>
+          <div style="flex:1;height:1px;background:#E2E8F0;"></div>
         </div>
 
-        <!-- ÉTAPE 2 : Nom complet + téléphone -->
-        <div id="reg-step-2" style="display:none;">
-          <div class="reg-promo-summary" id="reg-promo-summary">
-            <div class="reg-promo-summary-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 14l9-5-9-5-9 5 9 5z"/><path d="M12 14l6.16-3.422a12 12 0 01.665 6.479A12 12 0 0112 20.055a12 12 0 01-6.824-2.998 12 12 0 01.665-6.479L12 14z"/></svg>
-            </div>
-            <div>
-              <div class="reg-promo-summary-name" id="reg-promo-summary-name">—</div>
-              <div class="reg-promo-summary-sub" id="reg-promo-summary-sub">—</div>
-            </div>
-            <button class="reg-change-btn" onclick="goToRegStep1()">Changer</button>
-          </div>
+        <!-- Formulaire code d'accès -->
+        <div id="code-login-form">
+          <h2 class="edu-form-title" style="margin-bottom:0.25rem;">Accès à la plateforme</h2>
+          <p class="edu-form-sub" style="margin-bottom:1.1rem;">Entrez le code d'accès remis par votre responsable de formation ainsi que votre nom complet.</p>
 
-          <h2 class="edu-form-title" style="margin-bottom:0.25rem;">Vos informations</h2>
-          <p class="edu-form-sub" style="margin-bottom:1rem;">Entrez votre nom complet et votre numéro de téléphone.</p>
+          <label class="edu-field-label">Code d'accès <span style="color:#EF4444;">*</span></label>
+          <div class="edu-field" style="margin-bottom:0.3rem;">
+            <span class="edu-field-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <input type="text" class="edu-input" id="access-code-input" placeholder="Ex : HRM-A1B2" maxlength="8" autocomplete="off" oninput="onCodeInput(this)" style="text-transform:uppercase;letter-spacing:0.12em;font-weight:700;font-size:1.05rem;">
+          </div>
+          <p style="font-size:0.71rem;color:#94A3B8;margin-bottom:0.9rem;">Format : HRM- suivi de 4 caractères (ex : HRM-A1B2)</p>
 
           <label class="edu-field-label">Nom et prénom <span style="color:#EF4444;">*</span></label>
-          <div class="edu-field" style="margin-bottom:0.35rem;">
+          <div class="edu-field" style="margin-bottom:0.3rem;">
             <span class="edu-field-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
-            <input type="text" class="edu-input" id="student-name" placeholder="Ex: Aminata Coulibaly" autocomplete="name">
+            <input type="text" class="edu-input" id="student-name-code" placeholder="Ex : Aminata Coulibaly" autocomplete="name" onkeydown="if(event.key==='Enter')studentLoginWithCode()">
           </div>
-          <p style="font-size:0.72rem;color:#94A3B8;margin-bottom:0.9rem;">Entrez votre prénom et votre nom de famille.</p>
+          <p style="font-size:0.71rem;color:#94A3B8;margin-bottom:0.85rem;">Entrez votre prénom suivi de votre nom de famille.</p>
 
-          <label class="edu-field-label">Numéro de téléphone <span style="color:#EF4444;">*</span></label>
-          <div class="edu-field" id="phone-field" style="margin-bottom:0.35rem;">
-            <span class="edu-field-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.58 1.18h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 5.54 5.54l1.36-1.36a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7a2 2 0 0 1 1.72 2z"/></svg></span>
-            <input type="tel" class="edu-input" id="student-phone" placeholder="Ex: 0788816188" autocomplete="tel" oninput="onPhoneInput(this)">
-          </div>
-          <p id="phone-hint" style="font-size:0.72rem;color:#94A3B8;margin-bottom:1rem;">Format : 0788816188 (10 chiffres) ou +2250788816188</p>
+          <label style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1.1rem;cursor:pointer;user-select:none;">
+            <input type="checkbox" id="remember-device-code" style="width:16px;height:16px;accent-color:#0D47A1;cursor:pointer;flex-shrink:0;">
+            <span style="font-size:0.82rem;color:#64748B;font-weight:500;">Mémoriser sur cet appareil</span>
+          </label>
 
-          <button class="edu-btn-primary" onclick="requestOTP()">Voir mon code →</button>
-          <button class="edu-btn-social" onclick="goToRegStep1()" style="margin-top:0.5rem;">← Retour</button>
-        </div>
-
-        <!-- ÉTAPE 3 : Vérification OTP -->
-        <!-- ÉTAPE 3 : Vérification OTP -->
-        <div id="reg-step-3" style="display:none;">
-
-          <!-- Badge compte -->
-          <div style="display:inline-flex;align-items:center;gap:0.45rem;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:50px;padding:0.38rem 0.9rem;font-size:0.76rem;color:#1D4ED8;margin-bottom:0.85rem;font-weight:600;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            Connexion pour <strong id="otp-display-phone">—</strong>
+          <div id="code-login-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:0.65rem 0.9rem;font-size:0.82rem;color:#DC2626;font-weight:600;margin-bottom:0.85rem;align-items:center;gap:0.5rem;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span id="code-login-error-msg">Erreur</span>
           </div>
 
-          <!-- Boîte code généré -->
-          <div id="otp-sms-box" style="background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:14px;overflow:hidden;margin-bottom:0.85rem;">
-            <div id="otp-sms-header" style="display:flex;align-items:center;gap:0.45rem;background:#0D47A1;color:rgba(255,255,255,0.9);font-size:0.72rem;font-weight:700;padding:0.55rem 0.9rem;letter-spacing:0.04em;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              Code de vérification — Les Cours Hermès
-            </div>
-            <div id="otp-sms-body" class="otp-sms-body">
-              <div style="text-align:center;padding:0.75rem 0 0.5rem;">
-                <div style="font-size:0.7rem;color:#64748B;margin-bottom:0.55rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Votre code d&apos;accès</div>
-                <div id="otp-code-display" style="font-size:2.6rem;font-weight:900;letter-spacing:0.4em;color:#0D47A1;font-family:&apos;JetBrains Mono&apos;,&apos;Courier New&apos;,monospace;line-height:1.1;">——</div>
-                <div style="font-size:0.72rem;color:#94A3B8;margin-top:0.55rem;">Saisissez ce code dans les cases ci-dessous</div>
-              </div>
-            </div>
-          </div>
-
-          <h2 class="edu-form-title" style="margin-bottom:0.25rem;">Entrez le code</h2>
-          <p class="edu-form-sub" style="margin-bottom:1rem;">Saisissez le code à 6 chiffres affiché ci-dessus.</p>
-
-          <div class="otp-inputs" id="otp-inputs">
-            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" id="otp-0" oninput="otpMove(this,0)" onkeydown="otpBack(this,0)">
-            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" id="otp-1" oninput="otpMove(this,1)" onkeydown="otpBack(this,1)">
-            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" id="otp-2" oninput="otpMove(this,2)" onkeydown="otpBack(this,2)">
-            <span class="otp-sep">—</span>
-            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" id="otp-3" oninput="otpMove(this,3)" onkeydown="otpBack(this,3)">
-            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" id="otp-4" oninput="otpMove(this,4)" onkeydown="otpBack(this,4)">
-            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" id="otp-5" oninput="otpMove(this,5)" onkeydown="otpBack(this,5)">
-          </div>
-          <p id="otp-error" style="font-size:0.78rem;color:#EF4444;text-align:center;margin-top:0.5rem;display:none;">Code incorrect. Réessayez.</p>
-
-          <button class="edu-btn-primary" onclick="verifyOTP()" style="margin-top:1rem;">Vérifier et accéder →</button>
-          <div style="display:flex;justify-content:space-between;margin-top:0.6rem;">
-            <button class="edu-btn-social" onclick="goToRegStep2(true)" style="flex:1;margin-right:0.4rem;">← Modifier</button>
-            <button class="edu-btn-social" onclick="resendOTP()" style="flex:1;margin-left:0.4rem;" id="resend-btn">Nouveau code</button>
-          </div>
+          <button class="edu-btn-primary" onclick="studentLoginWithCode()">Accéder à ma formation →</button>
+          <button class="edu-btn-social btn-back-welcome" onclick="goTo('welcome')" style="margin-top:0.5rem;">← Retour à l'accueil</button>
         </div>
 
       </div>
@@ -7643,13 +7551,14 @@ const SESSION_KEY = 'hermes_session';
 const REMEMBER_KEY = 'hermes_remember';
 const SCREEN_KEY = 'hermes_screen_v1';
 const PHONE_CACHE_KEY = 'hermes_phone_cache';
+const CODE_CACHE_KEY   = 'hermes_code_cache';
 const PDF_DB_NAME = 'hermes_pdfs';
 const PDF_STORE = 'pdfs';
 if (typeof pdfjsLib !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
 
-let appData = { tours: [], courses: [], exerciseTypes: [], questions: {}, users: [] };
+let appData = { tours: [], courses: [], exerciseTypes: [], questions: {}, users: [], accessCodes: [] };
 let adminState = {
   selectedCourseId: null,
   adminView: 'dashboard',
@@ -7785,422 +7694,148 @@ function resetDeviceMemory() {
   } catch (e) {}
 }
 
-function studentLogin() {
-  const name  = document.getElementById('student-name').value.trim();
-  const phone = document.getElementById('student-phone').value.trim();
-  // Validations déjà faites dans requestOTP — on revérifie en sécurité
-  if (!name || !validateFullName(name))  { showNotif('Nom complet requis (prénom + nom).', 'error'); return; }
-  if (!phone || !validatePhone(phone))   { showNotif('Numéro de téléphone invalide.', 'error'); return; }
+// ── Formater code input : insérer tiret automatiquement ─────────────────
+function onCodeInput(input) {
+  let val = input.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 7);
+  if (val.length > 3) val = val.slice(0, 3) + '-' + val.slice(3);
+  input.value = val;
+}
 
-  // ── Vérification promotion sélectionnée ──
-  const selectedPromoEl = document.querySelector('.promo-select-item.selected');
-  const promotionId = selectedPromoEl ? selectedPromoEl.dataset.promoId : null;
-  if (!promotionId) {
-    showNotif('Veuillez sélectionner une promotion.', 'error');
-    goToRegStep1();
-    return;
-  }
-  const selPromo = (appData.promotions || []).find(p => p.id === promotionId);
-  if (!selPromo) {
-    showNotif('Promotion introuvable. Contactez votre administrateur.', 'error');
-    goToRegStep1();
-    return;
-  }
-  if (promoStatus(selPromo) !== 'active') {
-    showNotif('La promotion "' + selPromo.name + '" est clôturée. Vous ne pouvez plus vous inscrire.', 'error');
-    goToRegStep1();
-    return;
+function showCodeError(msg) {
+  const box = document.getElementById('code-login-error');
+  const txt = document.getElementById('code-login-error-msg');
+  if (!box || !txt) return;
+  txt.textContent = msg;
+  box.style.display = 'flex';
+}
+
+function hideCodeError() {
+  const box = document.getElementById('code-login-error');
+  if (box) box.style.display = 'none';
+}
+
+// ── Login étudiant par code d'accès ─────────────────────────────────────
+function studentLoginWithCode() {
+  hideCodeError();
+  const rawCode = (document.getElementById('access-code-input').value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const name    = (document.getElementById('student-name-code').value || '').trim();
+  const remember = document.getElementById('remember-device-code').checked;
+
+  if (rawCode.length < 7) { showCodeError('Entrez votre code d\'accès complet (ex : HRM-A1B2).'); return; }
+  if (!name || name.split(/\s+/).filter(w => w.length >= 2).length < 2) {
+    showCodeError('Entrez votre nom complet (prénom et nom, au moins 2 mots).'); return;
   }
 
-  // ── Recherche du compte par téléphone (clé primaire — OTP a prouvé la propriété du numéro) ──
-  let user = appData.users.find(u => u.phone === phone);
+  const formattedCode = rawCode.slice(0, 3) + '-' + rawCode.slice(3, 7);
 
-  if (user) {
-    // Compte existant → vérifier que SA promotion n'est pas expirée
-    const userPromo = (appData.promotions || []).find(p => p.id === user.promotionId);
-    if (userPromo && promoStatus(userPromo) === 'expired') {
-      showNotif(
-        'Votre promotion "' + userPromo.name + '" est clôturée. Vous ne pouvez plus vous connecter.',
-        'error'
-      );
-      return;
-    }
-    // ── Vérification mensualité ──
-    if (user.paidUntil) {
-      const today = new Date(); today.setHours(0,0,0,0);
-      const paid  = new Date(user.paidUntil); paid.setHours(0,0,0,0);
-      if (today > paid) {
-        showNotif(
-          'Votre accès mensuel a expiré le ' + fmtDate(user.paidUntil) +
-          '. Veuillez contacter l\'administration pour régulariser votre mensualité.',
-          'error'
-        );
-        return;
-      }
-    } else if (user.accessSuspended) {
-      showNotif(
-        'Votre accès a été suspendu. Veuillez contacter l\'administration.',
-        'error'
-      );
-      return;
-    }
-    if (!user.promotionId) user.promotionId = promotionId;
-    user.lastLogin = Date.now();
-    saveAppData(false);
-  } else {
-    // Nouveau compte → on lui affecte la promotion choisie
+  const codes = appData.accessCodes || [];
+  const codeEntry = codes.find(c => c.code.replace('-', '').toUpperCase() === rawCode);
+  if (!codeEntry) {
+    showCodeError('Code d\'accès invalide. Vérifiez auprès de votre responsable de formation.'); return;
+  }
+
+  let user;
+
+  if (!codeEntry.usedBy) {
+    // ── Premier accès : création du compte ──
+    const promo = (appData.promotions || []).find(p => p.id === codeEntry.promotionId);
+    if (!promo) { showCodeError('Promotion introuvable. Contactez l\'administrateur.'); return; }
+    if (promoStatus(promo) === 'expired') { showCodeError('Cette promotion est clôturée. Contactez votre administrateur.'); return; }
+
     user = {
       id: genId('user'),
-      name,
-      phone,
-      promotionId,
+      name: name,
+      accessCode: formattedCode,
+      promotionId: codeEntry.promotionId,
       createdAt: Date.now(),
       lastLogin: Date.now(),
-      totalScore: 0,
-      quizPlayed: 0,
-      bestScore: 0,
-      catScores: {},
-      catPlayed: {},
+      totalScore: 0, quizPlayed: 0, bestScore: 0,
+      catScores: {}, catPlayed: {},
     };
+    if (!appData.users) appData.users = [];
     appData.users.push(user);
+    codeEntry.usedBy = user.id;
+    saveAppData(false);
+
+  } else {
+    // ── Reconnexion : vérification nom ──
+    user = (appData.users || []).find(u => u.id === codeEntry.usedBy);
+    if (!user) { showCodeError('Compte introuvable. Contactez votre administrateur.'); return; }
+    if (normalizeStr(user.name) !== normalizeStr(name)) {
+      showCodeError('Nom incorrect. Vérifiez l\'orthographe de votre nom complet.'); return;
+    }
+    if (user.accessSuspended) {
+      showCodeError('Votre accès a été suspendu. Contactez votre administrateur.'); return;
+    }
+    user.lastLogin = Date.now();
     saveAppData(false);
   }
 
-  auth.role = 'student';
+  auth.role    = 'student';
+  auth.userId  = user.id;
+  saveSession(remember ? true : false);
+
+  if (remember) {
+    try {
+      localStorage.setItem(CODE_CACHE_KEY, JSON.stringify({
+        code: formattedCode, userId: user.id, name: user.name
+      }));
+    } catch(e) {}
+  } else {
+    localStorage.removeItem(CODE_CACHE_KEY);
+  }
+
+  enterStudentApp();
+  showNotif('Bienvenue, ' + user.name.split(' ')[0] + ' !', 'success');
+}
+
+// ── Connexion rapide depuis le cache ────────────────────────────────────
+function quickLoginFromCache() {
+  const cached = getCachedCode();
+  if (!cached) { clearCodeCache(); return; }
+
+  const user = (appData.users || []).find(u => u.id === cached.userId);
+  if (!user || user.accessSuspended) { clearCodeCache(); return; }
+
+  const codeEntry = (appData.accessCodes || []).find(c => c.usedBy === user.id);
+  if (!codeEntry) { clearCodeCache(); return; }
+
+  const promo = (appData.promotions || []).find(p => p.id === codeEntry.promotionId);
+  if (!promo || promoStatus(promo) === 'expired') {
+    clearCodeCache();
+    showNotif('Votre promotion est clôturée. Contactez votre administrateur.', 'error');
+    return;
+  }
+
+  user.lastLogin = Date.now();
+  saveAppData(false);
+  auth.role   = 'student';
   auth.userId = user.id;
-  loadUserStats(user);
-  document.body.classList.remove('direct-link-mode');
-  history.replaceState(null, '', location.pathname);
-  // Vérifier si l'étudiant a déjà fait son choix de mémorisation
-  const rememberPref = localStorage.getItem(REMEMBER_KEY);
-  if (rememberPref === '1') {
-    // Déjà choisi "Oui" → session persistante, accès direct
-    saveSession(true);
-    enterStudentApp();
-  } else {
-    // Demander le choix (première fois ou après un "Non")
-    saveSession(false); // Session temporaire en attendant le choix
-    showRememberPrompt(name);
-  }
+  saveSession(true);
+  enterStudentApp();
+  showNotif('Bon retour, ' + user.name.split(' ')[0] + ' !', 'success');
 }
 
-// ── Helpers dates promotion ─────────────────────────────────────
-function promoStatus(p) {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const start = p.startDate ? new Date(p.startDate) : null;
-  const end   = p.endDate   ? new Date(p.endDate)   : null;
-  if (end && today > end)   return 'expired';
-  if (start && today < start) return 'upcoming';
-  return 'active';
+function getCachedCode() {
+  try { return JSON.parse(localStorage.getItem(CODE_CACHE_KEY) || 'null'); } catch(e) { return null; }
 }
 
-function fmtDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
-}
-
-// ── Inscription 2 étapes ─────────────────────────────────────────
-function renderPromoSelector() {
-  const grid    = document.getElementById('promo-select-grid');
-  const noPromo = document.getElementById('reg-no-promo');
-  const nextBtn = document.getElementById('reg-next-btn');
-  const qcDiv   = document.getElementById('reg-quick-connect');
-  if (!grid) return;
-
-  // Connexion rapide : afficher si un téléphone est mémorisé
-  if (qcDiv) {
-    const cached = (() => { try { return JSON.parse(localStorage.getItem(PHONE_CACHE_KEY) || 'null'); } catch(e) { return null; } })();
-    const cachedPromo = cached?.promotionId ? (appData.promotions || []).find(p => p.id === cached.promotionId && promoStatus(p) === 'active') : null;
-    if (cached?.phone && cached?.name && cachedPromo) {
-      qcDiv.style.display = 'block';
-      qcDiv.innerHTML = `
-        <div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:14px;padding:1rem 1.1rem;">
-          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.55rem;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <span style="font-size:0.78rem;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:0.05em;">Accès mémorisé</span>
-          </div>
-          <div style="font-weight:700;color:#1A1A1A;font-size:0.93rem;">${cached.name}</div>
-          <div style="color:#6B7280;font-size:0.82rem;margin-bottom:0.85rem;">${formatPhoneDisplay(cached.phone)} · ${cachedPromo.name}</div>
-          <button onclick="quickConnect()" style="width:100%;padding:0.75rem;background:linear-gradient(135deg,#16A34A,#15803D);color:#fff;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.45rem;margin-bottom:0.45rem;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-            Connexion rapide
-          </button>
-          <button onclick="clearPhoneCache()" style="width:100%;padding:0.6rem;background:none;color:#9CA3AF;border:none;font-family:'DM Sans',sans-serif;font-size:0.8rem;cursor:pointer;">Utiliser un autre compte</button>
-        </div>`;
-    } else {
-      qcDiv.style.display = 'none';
-      qcDiv.innerHTML = '';
-    }
-  }
-
-  const open = (appData.promotions || []).filter(p => promoStatus(p) === 'active');
-  if (!open.length) {
-    grid.innerHTML = '';
-    if (noPromo) noPromo.style.display = 'block';
-    if (nextBtn) nextBtn.style.display = 'none';
-    return;
-  }
-  if (noPromo) noPromo.style.display = 'none';
-  if (nextBtn) nextBtn.style.display = 'block';
-  grid.innerHTML = open.map(p => `
-    <button class="promo-select-item" data-promo-id="${p.id}" onclick="selectPromo(this)" type="button">
-      <div class="promo-select-item-avatar">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 14l9-5-9-5-9 5 9 5z"/><path d="M12 14l6.16-3.422a12 12 0 01.665 6.479A12 12 0 0112 20.055a12 12 0 01-6.824-2.998 12 12 0 01.665-6.479L12 14z"/></svg>
-      </div>
-      <div style="flex:1;min-width:0;">
-        <div class="promo-select-item-name">${p.name}</div>
-        <div class="promo-select-item-meta">${p.year ? p.year + ' · ' : ''}Clôture : ${fmtDate(p.endDate)}</div>
-      </div>
-      <div class="promo-select-item-check">✓</div>
-    </button>
-  `).join('');
-}
-
-function quickConnect() {
-  const cached = (() => { try { return JSON.parse(localStorage.getItem(PHONE_CACHE_KEY) || 'null'); } catch(e) { return null; } })();
-  if (!cached?.phone || !cached?.name || !cached?.promotionId) return;
-  // Sélectionner la promo dans la grille
-  document.querySelectorAll('.promo-select-item').forEach(btn => {
-    btn.classList.toggle('selected', btn.dataset.promoId === cached.promotionId);
-  });
-  // Pré-remplir étape 2
-  const nameEl  = document.getElementById('student-name');
-  const phoneEl = document.getElementById('student-phone');
-  if (nameEl)  nameEl.value  = cached.name;
-  if (phoneEl) { phoneEl.value = cached.phone; onPhoneInput(phoneEl); }
-  // Passer à l'étape 2 puis générer le code directement
-  goToRegStep2();
-  requestOTP();
-}
-
-function clearPhoneCache() {
-  try { localStorage.removeItem(PHONE_CACHE_KEY); } catch(e) {}
-  const qcDiv = document.getElementById('reg-quick-connect');
-  if (qcDiv) { qcDiv.style.display = 'none'; qcDiv.innerHTML = ''; }
-}
-
-function selectPromo(el) {
-  document.querySelectorAll('.promo-select-item').forEach(b => b.classList.remove('selected'));
-  el.classList.add('selected');
-}
-
-function goToRegStep2(fromStep3) {
-  if (!fromStep3) {
-    // Depuis étape 1 : vérifier sélection promo
-    const selected = document.querySelector('.promo-select-item.selected');
-    if (!selected) { showNotif('Veuillez choisir une promotion pour continuer.', 'error'); return; }
-    const promoId = selected.dataset.promoId;
-    const promo   = (appData.promotions || []).find(p => p.id === promoId);
-    if (!promo) return;
-    document.getElementById('reg-promo-summary-name').textContent = promo.name;
-    document.getElementById('reg-promo-summary-sub').textContent  =
-      (promo.year ? promo.year + ' · ' : '') + 'Clôture : ' + fmtDate(promo.endDate);
-    document.getElementById('dot-step-1').className  = 'reg-step-dot done';
-    document.getElementById('lbl-step-1').className  = 'reg-step-label done';
-    document.getElementById('line-step-1').className = 'reg-step-line done';
-  }
-  document.getElementById('dot-step-2').className  = 'reg-step-dot active';
-  document.getElementById('lbl-step-2').className  = 'reg-step-label active';
-  document.getElementById('line-step-2').className = 'reg-step-line';
-  document.getElementById('dot-step-3').className  = 'reg-step-dot';
-  document.getElementById('lbl-step-3').className  = 'reg-step-label';
-  document.getElementById('reg-step-1').style.display = 'none';
-  document.getElementById('reg-step-2').style.display = 'block';
-  document.getElementById('reg-step-3').style.display = 'none';
-  if (!fromStep3) document.getElementById('student-name').focus();
-}
-
-function goToRegStep1() {
-  document.getElementById('dot-step-1').className  = 'reg-step-dot active';
-  document.getElementById('lbl-step-1').className  = 'reg-step-label active';
-  document.getElementById('line-step-1').className = 'reg-step-line';
-  document.getElementById('dot-step-2').className  = 'reg-step-dot';
-  document.getElementById('lbl-step-2').className  = 'reg-step-label';
-  document.getElementById('line-step-2').className = 'reg-step-line';
-  document.getElementById('dot-step-3').className  = 'reg-step-dot';
-  document.getElementById('lbl-step-3').className  = 'reg-step-label';
-  document.getElementById('reg-step-1').style.display = 'block';
-  document.getElementById('reg-step-2').style.display = 'none';
-  document.getElementById('reg-step-3').style.display = 'none';
-}
-
-// ══════════════════════════════════════════
-//  OTP — VÉRIFICATION TÉLÉPHONE
-// ══════════════════════════════════════════
-let _pendingOTP = null;
-let _otpExpiry  = null;
-
-function validatePhone(raw) {
-  // CI : 0788816188 (10 chiffres locaux avec le 0)
-  // International : +2250788816188 ou 002250788816188
-  const c = raw.replace(/[\s\-\.]/g, '');
-  return (
-    /^0[0-9]{9}$/.test(c)          ||  // 0788816188  (10 chiffres, format local CI)
-    /^\+2250[0-9]{9}$/.test(c)     ||  // +2250788816188
-    /^002250[0-9]{9}$/.test(c)     ||  // 002250788816188
-    /^2250[0-9]{9}$/.test(c)           // 2250788816188 (sans le +)
-  );
-}
-
-function formatPhoneDisplay(raw) {
-  // Affiche joliment : 0788816188 → 07 88 81 61 88
-  const c = raw.replace(/[\s\-\.]/g, '');
-  if (c.startsWith('+2250')) return c;
-  if (c.startsWith('00225')) return '+' + c.slice(2);
-  if (c.startsWith('2250'))  return '+' + c;
-  if (c.startsWith('0') && c.length === 10) {
-    return c.replace(/^(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/, '$1 $2 $3 $4 $5');
-  }
-  return c;
-}
-
-function onPhoneInput(input) {
-  const hint = document.getElementById('phone-hint');
-  const field = document.getElementById('phone-field');
-  const val = input.value;
-  if (!val) {
-    hint.style.color = '#94A3B8';
-    hint.textContent = 'Format : 0788816188 (10 chiffres) ou +2250788816188';
-    field.style.borderColor = '';
-    return;
-  }
-  if (validatePhone(val)) {
-    hint.style.color = '#16A34A';
-    hint.textContent = '✓ Numéro valide';
-    field.style.borderColor = '#86EFAC';
-  } else {
-    hint.style.color = '#EF4444';
-    hint.textContent = 'Numéro invalide. Entrez 10 chiffres, ex : 0788816188';
-    field.style.borderColor = '#FCA5A5';
-  }
-}
-
-function validateFullName(name) {
-  const parts = name.trim().split(/\s+/);
-  return parts.length >= 2 && parts.every(p => p.length >= 2);
+function clearCodeCache() {
+  localStorage.removeItem(CODE_CACHE_KEY);
+  const banner = document.getElementById('quick-access-banner');
+  const sep    = document.getElementById('code-or-separator');
+  if (banner) banner.style.display = 'none';
+  if (sep)    sep.style.display    = 'none';
 }
 
 function normalizeStr(s) {
-  return (s || '').toLowerCase().trim()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[-_]/g, ' ').replace(/\s+/g, ' ');
+  return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
-function requestOTP() {
-  const name  = document.getElementById('student-name').value.trim();
-  const phone = document.getElementById('student-phone').value.trim();
-
-  if (!validateFullName(name)) {
-    showNotif('Entrez votre prénom et votre nom de famille (au moins 2 mots).', 'error');
-    document.getElementById('student-name').focus();
-    return;
-  }
-  if (!validatePhone(phone)) {
-    showNotif('Numéro de téléphone invalide. Vérifiez le format.', 'error');
-    document.getElementById('student-phone').focus();
-    return;
-  }
-
-  // Bloquer si ce nom est déjà enregistré avec un numéro différent
-  const nameOwner = (appData.users || []).find(u => normalizeStr(u.name) === normalizeStr(name));
-  if (nameOwner && nameOwner.phone !== phone) {
-    showNotif('Ce nom est déjà enregistré avec un autre numéro. Utilisez le numéro associé à votre compte.', 'error');
-    document.getElementById('student-phone').focus();
-    return;
-  }
-  // Info si ce numéro est utilisé par quelqu'un d'autre
-  const phoneOwner = (appData.users || []).find(u => u.phone === phone);
-  if (phoneOwner && normalizeStr(phoneOwner.name) !== normalizeStr(name)) {
-    showNotif('Ce numéro appartient à un autre compte. Vérifiez votre numéro ou votre nom.', 'error');
-    document.getElementById('student-phone').focus();
-    return;
-  }
-
-  // Génération OTP 6 chiffres
-  _pendingOTP = Math.floor(100000 + Math.random() * 900000).toString();
-  _otpExpiry  = Date.now() + 10 * 60 * 1000;
-
-  document.getElementById('otp-display-phone').textContent = formatPhoneDisplay(phone);
-
-  // Passer à l'étape 3
-  document.getElementById('dot-step-2').className  = 'reg-step-dot done';
-  document.getElementById('lbl-step-2').className  = 'reg-step-label done';
-  document.getElementById('line-step-2').className = 'reg-step-line done';
-  document.getElementById('dot-step-3').className  = 'reg-step-dot active';
-  document.getElementById('lbl-step-3').className  = 'reg-step-label active';
-  document.getElementById('reg-step-2').style.display = 'none';
-  document.getElementById('reg-step-3').style.display = 'block';
-
-  // Vider champs OTP
-  [0,1,2,3,4,5].forEach(i => {
-    const el = document.getElementById('otp-' + i);
-    if (el) { el.value = ''; el.className = 'otp-box'; }
-  });
-  document.getElementById('otp-error').style.display = 'none';
-
-  // Afficher le code généré
-  const codeEl = document.getElementById('otp-code-display');
-  if (codeEl) codeEl.textContent = _pendingOTP;
-  setTimeout(() => { const f = document.getElementById('otp-0'); if (f) f.focus(); }, 100);
+function validateFullName(name) {
+  const parts = name.trim().split(/\s+/).filter(w => w.length >= 2);
+  return parts.length >= 2;
 }
-
-function resendOTP() {
-  _pendingOTP = Math.floor(100000 + Math.random() * 900000).toString();
-  _otpExpiry  = Date.now() + 10 * 60 * 1000;
-  [0,1,2,3,4,5].forEach(i => {
-    const el = document.getElementById('otp-' + i);
-    if (el) { el.value = ''; el.className = 'otp-box'; }
-  });
-  document.getElementById('otp-error').style.display = 'none';
-
-  const codeEl = document.getElementById('otp-code-display');
-  if (codeEl) codeEl.textContent = _pendingOTP;
-  document.getElementById('otp-0').focus();
-  showNotif('Nouveau code généré.', 'success');
-}
-
-function otpMove(input, idx) {
-  input.value = input.value.replace(/[^0-9]/g, '').slice(-1);
-  input.classList.toggle('filled', input.value.length > 0);
-  if (input.value && idx < 5) {
-    const next = document.getElementById('otp-' + (idx + 1));
-    if (next) next.focus();
-  }
-  // Auto-vérifier quand les 6 cases sont remplies
-  const all = [0,1,2,3,4,5].map(i => document.getElementById('otp-' + i)?.value || '');
-  if (all.every(v => v.length === 1)) setTimeout(verifyOTP, 150);
-}
-
-function otpBack(input, idx) {
-  if (event.key === 'Backspace' && !input.value && idx > 0) {
-    const prev = document.getElementById('otp-' + (idx - 1));
-    if (prev) { prev.value = ''; prev.classList.remove('filled'); prev.focus(); }
-  }
-}
-
-function verifyOTP() {
-  const entered = [0,1,2,3,4,5].map(i => document.getElementById('otp-' + i)?.value || '').join('');
-  if (entered.length < 6) { showNotif('Entrez les 6 chiffres du code.', 'error'); return; }
-  if (!_pendingOTP) { showNotif('Aucun code en attente. Recommencez.', 'error'); return; }
-  if (Date.now() > _otpExpiry) {
-    showNotif('Le code a expiré. Renvoyez un nouveau code.', 'error');
-    document.getElementById('otp-error').style.display = 'none';
-    return;
-  }
-  if (entered !== _pendingOTP) {
-    [0,1,2,3,4,5].forEach(i => {
-      const el = document.getElementById('otp-' + i);
-      if (el) { el.className = 'otp-box error'; setTimeout(() => el.classList.remove('error'), 500); }
-    });
-    document.getElementById('otp-error').style.display = 'block';
-    return;
-  }
-  // Code correct → connexion
-  document.getElementById('otp-error').style.display = 'none';
-  _pendingOTP = null;
-  studentLogin();
-}
-
 // ══════════════════════════════════════════
 //  PROMOTIONS — ADMIN
 // ══════════════════════════════════════════
@@ -8649,6 +8284,143 @@ function deletePromotion(id) {
   showNotif('Promotion supprimée', '');
 }
 
+// ══════════════════════════════════════════
+//  CODES D'ACCÈS — ADMIN
+// ══════════════════════════════════════════
+function generateAccessCodes(promotionId, count) {
+  if (!appData.accessCodes) appData.accessCodes = [];
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const generated = [];
+  for (let i = 0; i < count; i++) {
+    let code, tries = 0;
+    do {
+      const rand = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+      code = 'HRM-' + rand;
+      tries++;
+    } while (appData.accessCodes.some(c => c.code === code) && tries < 100);
+    appData.accessCodes.push({ code, promotionId, usedBy: null, createdAt: Date.now() });
+    generated.push(code);
+  }
+  saveAppData(false);
+  return generated;
+}
+
+function deleteAccessCode(code) {
+  if (!confirm('Supprimer ce code ? S\'il est déjà utilisé, l\'étudiant correspondant perdra l\'accès.')) return;
+  appData.accessCodes = (appData.accessCodes || []).filter(c => c.code !== code);
+  saveAppData(false);
+  openCodesPanel(_codesPanelPromoId);
+}
+
+let _codesPanelPromoId = null;
+
+function openCodesPanel(promoId) {
+  _codesPanelPromoId = promoId;
+  const promo = (appData.promotions || []).find(p => p.id === promoId);
+  if (!promo) return;
+
+  const codes = (appData.accessCodes || []).filter(c => c.promotionId === promoId);
+  const freeCount = codes.filter(c => !c.usedBy).length;
+  const usedCount = codes.filter(c => !!c.usedBy).length;
+
+  const rows = codes.length ? codes.map(c => {
+    const user = c.usedBy ? (appData.users || []).find(u => u.id === c.usedBy) : null;
+    const statusBadge = c.usedBy
+      ? `<span style="background:#DCFCE7;color:#166534;border-radius:50px;padding:0.1rem 0.5rem;font-size:0.7rem;font-weight:700;">Utilisé</span>`
+      : `<span style="background:#FFF7ED;color:#C2410C;border-radius:50px;padding:0.1rem 0.5rem;font-size:0.7rem;font-weight:700;">Libre</span>`;
+    const userName = user ? `<span style="color:#334155;font-size:0.78rem;">${user.name}</span>` : `<span style="color:#94A3B8;font-size:0.75rem;">—</span>`;
+    const delBtn = !c.usedBy
+      ? `<button onclick="deleteAccessCode('${c.code}')" style="background:none;border:none;color:#EF4444;cursor:pointer;font-size:0.85rem;padding:0.2rem;" title="Supprimer">✕</button>`
+      : '';
+    return `<tr style="border-bottom:1px solid #F1F5F9;">
+      <td style="padding:0.55rem 0.75rem;font-family:monospace;font-weight:700;font-size:0.88rem;letter-spacing:0.08em;color:#1E293B;">${c.code}</td>
+      <td style="padding:0.55rem 0.75rem;">${statusBadge}</td>
+      <td style="padding:0.55rem 0.75rem;">${userName}</td>
+      <td style="padding:0.55rem 0.75rem;text-align:right;">${delBtn}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="4" style="padding:2rem;text-align:center;color:#94A3B8;font-size:0.85rem;">Aucun code généré pour cette promotion.</td></tr>`;
+
+  const html = `
+    <div style="background:#fff;border-radius:20px;max-width:560px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,0.22);overflow:hidden;animation:slideUp 0.25s ease;">
+      <div style="background:linear-gradient(135deg,#0D47A1,#1976D2);padding:1.5rem;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="color:rgba(255,255,255,0.7);font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;">Codes d'accès</div>
+          <div style="color:#fff;font-weight:800;font-size:1.05rem;">${promo.name}</div>
+        </div>
+        <button onclick="closeCodesPanel()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:34px;height:34px;border-radius:50%;font-size:1.1rem;cursor:pointer;flex-shrink:0;">✕</button>
+      </div>
+      <div style="padding:1.25rem;">
+        <div style="display:flex;gap:0.75rem;margin-bottom:1rem;">
+          <div style="flex:1;background:#F0FDF4;border-radius:10px;padding:0.75rem;text-align:center;">
+            <div style="font-size:1.4rem;font-weight:800;color:#166534;">${freeCount}</div>
+            <div style="font-size:0.72rem;color:#16A34A;font-weight:600;">Libres</div>
+          </div>
+          <div style="flex:1;background:#EFF6FF;border-radius:10px;padding:0.75rem;text-align:center;">
+            <div style="font-size:1.4rem;font-weight:800;color:#1D4ED8;">${usedCount}</div>
+            <div style="font-size:0.72rem;color:#2563EB;font-weight:600;">Utilisés</div>
+          </div>
+          <div style="flex:1;background:#F8FAFC;border-radius:10px;padding:0.75rem;text-align:center;">
+            <div style="font-size:1.4rem;font-weight:800;color:#334155;">${codes.length}</div>
+            <div style="font-size:0.72rem;color:#64748B;font-weight:600;">Total</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+          <select id="codes-gen-count" style="flex:1;padding:0.55rem 0.75rem;border-radius:8px;border:1.5px solid #E2E8F0;font-family:'DM Sans',sans-serif;font-size:0.85rem;color:#334155;">
+            <option value="5">5 codes</option>
+            <option value="10" selected>10 codes</option>
+            <option value="20">20 codes</option>
+            <option value="30">30 codes</option>
+            <option value="50">50 codes</option>
+          </select>
+          <button onclick="adminGenerateCodes('${promoId}')" style="padding:0.55rem 1rem;background:linear-gradient(135deg,#0D47A1,#1976D2);color:#fff;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:700;cursor:pointer;white-space:nowrap;">+ Générer</button>
+          <button onclick="copyAllFreeCodes('${promoId}')" style="padding:0.55rem 0.75rem;background:#F1F5F9;color:#475569;border:1px solid #E2E8F0;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.82rem;font-weight:600;cursor:pointer;" title="Copier les codes libres">📋 Copier</button>
+        </div>
+        <div style="max-height:300px;overflow-y:auto;border-radius:10px;border:1px solid #E2E8F0;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead><tr style="background:#F8FAFC;">
+              <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.72rem;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;">Code</th>
+              <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.72rem;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;">Statut</th>
+              <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.72rem;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;">Étudiant</th>
+              <th></th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+
+  let overlay = document.getElementById('codes-panel-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'codes-panel-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(4px);';
+    overlay.onclick = (e) => { if (e.target === overlay) closeCodesPanel(); };
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = html;
+  overlay.style.display = 'flex';
+}
+
+function closeCodesPanel() {
+  const overlay = document.getElementById('codes-panel-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function adminGenerateCodes(promoId) {
+  const count = parseInt(document.getElementById('codes-gen-count')?.value || '10', 10);
+  generateAccessCodes(promoId, count);
+  showNotif('✅ ' + count + ' codes générés', 'success');
+  openCodesPanel(promoId);
+}
+
+function copyAllFreeCodes(promoId) {
+  const freeCodes = (appData.accessCodes || []).filter(c => c.promotionId === promoId && !c.usedBy).map(c => c.code);
+  if (!freeCodes.length) { showNotif('Aucun code libre à copier.', 'error'); return; }
+  const text = freeCodes.join('\n');
+  navigator.clipboard.writeText(text).then(() => showNotif('📋 ' + freeCodes.length + ' codes copiés dans le presse-papier', 'success')).catch(() => {
+    prompt('Copiez ces codes :', text);
+  });
+}
 function openExtendModal(id) {
   const promo = appData.promotions.find(p => p.id === id);
   if (!promo) return;
@@ -8966,7 +8738,8 @@ function renderAdminPromotions(filteredList) {
               ${count} apprenant${count !== 1 ? 's' : ''}
             </span>
             <div class="promo-card-actions">
-              <button class="promo-extend-btn" onclick="openExtendModal('${p.id}')">Prolonger</button>
+              <<button class="promo-extend-btn" onclick="openExtendModal('${p.id}')">Prolonger</button>
+              <button class="promo-extend-btn" onclick="openCodesPanel('${p.id}')" style="background:#EFF6FF;color:#1D4ED8;border-color:#BFDBFE;">🔑 Codes</button>
               <button class="promo-view-btn" onclick="switchAdminView('users','${p.id}')">Dossiers →</button>
             </div>
           </div>
@@ -12374,35 +12147,30 @@ function enterStudentApp() {
   setTimeout(checkPaymentAlert, 600);
 }
 
-function showRememberPrompt(name) {
-  const overlay = document.getElementById('remember-overlay');
-  const nameEl  = document.getElementById('remember-welcome-name');
-  if (nameEl) nameEl.textContent = 'Bienvenue, ' + name + ' !';
-  if (overlay) overlay.style.display = 'flex';
-}
+function initLoginScreen() {
+  const cached = getCachedCode();
+  const banner = document.getElementById('quick-access-banner');
+  const sep    = document.getElementById('code-or-separator');
+  const avatar = document.getElementById('quick-user-avatar');
+  const nameEl = document.getElementById('quick-user-name');
 
-function confirmRemember(remember) {
-  const overlay = document.getElementById('remember-overlay');
-  if (overlay) overlay.style.display = 'none';
-  saveSession(remember);
-  if (remember) {
-    // Mémoriser aussi le téléphone pour la connexion rapide future
-    const user = appData.users.find(u => u.id === auth.userId);
-    if (user?.phone) {
-      try {
-        localStorage.setItem(PHONE_CACHE_KEY, JSON.stringify({
-          name: user.name,
-          phone: user.phone,
-          promotionId: user.promotionId
-        }));
-      } catch(e) {}
+  if (cached && cached.userId && cached.name) {
+    const user = (appData.users || []).find(u => u.id === cached.userId);
+    if (user && !user.accessSuspended) {
+      const initials = user.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      if (avatar) avatar.textContent = initials;
+      if (nameEl) nameEl.textContent = user.name;
+      if (banner) banner.style.display = 'block';
+      if (sep)    sep.style.display    = 'flex';
+      // Pré-remplir le code dans le formulaire aussi
+      const codeInput = document.getElementById('access-code-input');
+      if (codeInput) codeInput.value = cached.code || '';
+      return;
     }
+    clearCodeCache();
   }
-  enterStudentApp();
-  const msg = remember
-    ? 'Bienvenue ! Vos informations sont enregistrées pour la prochaine visite.'
-    : 'Bienvenue ! Vous devrez vous identifier à la prochaine visite.';
-  showNotif(msg, 'success');
+  if (banner) banner.style.display = 'none';
+  if (sep)    sep.style.display    = 'none';
 }
 
 function buildCourseCard(c, accentColor) {
@@ -14548,7 +14316,7 @@ function goTo(screenId) {
       document.body.classList.remove('direct-link-mode');
     }
     if (screenId === 'welcome') updateSessionResumeBanner();
-    if (screenId === 'login-student') renderPromoSelector();
+    if (screenId === 'login-student') initLoginScreen();
     window.scrollTo(0, 0);
     return;
   }
