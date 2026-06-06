@@ -4102,7 +4102,18 @@
     #trainer-drawer-hamburger { display:flex !important; }
     .trainer-mobile-nav { display:none !important; }
   }
+  /* Anti-flash connexion : masque tous les ecrans pendant le chargement si une session existe */
+  html.has-session .screen { display: none !important; }
+  html.has-session #welcome { display: none !important; }
 </style>
+<script>
+(function(){
+  try {
+    var s = JSON.parse(localStorage.getItem('hermes_session') || sessionStorage.getItem('hermes_session') || 'null');
+    if (s && s.role) document.documentElement.classList.add('has-session');
+  } catch(e) {}
+})();
+</script>
 </head>
 <body>
 
@@ -15848,16 +15859,6 @@ function closeVideoPlayer() {
 // ══════════════════════════════════════════
 async function initApp() {
   try {
-    // Prevent login-page flash on refresh: if auth is already in storage, hide all screens immediately
-    const _quickAuth = (() => {
-      try {
-        return JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY) || 'null');
-      } catch(e) { return null; }
-    })();
-    if (_quickAuth?.role) {
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    }
-
     // Migration : retirer les cours et QCM par défaut injectés automatiquement
     // Migration v3 : supprimer TOUS les cours/questions injectés automatiquement
     const CLEAN_VERSION_KEY = 'hermes_clean_v3';
@@ -15916,11 +15917,14 @@ async function initApp() {
       document.getElementById('student-app').style.display = 'none';
       document.getElementById('admin-app').classList.remove('active');
       const tapp = document.getElementById('trainer-app'); if (tapp) tapp.classList.remove('active');
+      document.documentElement.classList.remove('has-session');
     } else {
       resumeSession(); // reprend la session ou affiche l'accueil
+      document.documentElement.classList.remove('has-session');
     }
   } catch (e) {
     console.error('Erreur initialisation:', e);
+    document.documentElement.classList.remove('has-session');
     if (!auth.role) {
       showWelcomePage();
       showNotif('⚠️ Erreur de chargement — rechargez la page', 'error');
